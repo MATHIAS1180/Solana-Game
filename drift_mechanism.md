@@ -1,0 +1,695 @@
+# DRIFT — Document de Mécanisme Complet
+## Version 1.0 — À destination de Claude Opus 4.6
+
+> **Note de lecture** : Ce document décrit exhaustivement le mécanisme d'un jeu compétitif Web3 appelé provisoirement "DRIFT". Il est conçu pour être lu dans sa totalité avant toute analyse ou suggestion d'amélioration. Chaque section est interdépendante.
+
+---
+
+## PARTIE 1 — L'ESSENCE DU JEU
+
+### 1.1 La phrase fondatrice
+
+> **Un mot apparaît. Tu annonces publiquement un nombre. Tu en soumets un autre en secret. Le gagnant est celui dont l'annonce publique prédit le mieux la moyenne de tous les secrets.**
+
+C'est tout. Tout le reste est découlant de cette phrase.
+
+### 1.2 La tension psychologique centrale
+
+DRIFT exploite un biais cognitif humain fondamental qui n'a jamais été gamifié : **la dissonance entre ce qu'on déclare et ce qu'on fait réellement.**
+
+En psychologie comportementale, ce phénomène s'appelle le *say-do gap* — l'écart structurel entre les intentions déclarées et les actions réelles. Les économistes l'étudient dans les enquêtes d'intention d'achat. Les politologues l'observent dans les sondages électoraux. Les thérapeutes le traitent en cabinet. **Personne n'en a encore fait un jeu.**
+
+Dans DRIFT, cet écart n'est pas un bug — c'est le moteur principal.
+
+### 1.3 Pourquoi ce mécanisme est légalement inattaquable
+
+Le résultat de chaque partie est **100% déterminé par les décisions humaines**. Il n'existe aucune source d'entropie externe, aucun RNG, aucun tirage, aucune roue, aucune carte mélangée. Si 10 joueurs entrent avec des décisions identiques dans deux parties différentes, le résultat est mathématiquement identique. C'est aussi déterministe que les échecs.
+
+La compétence est démontrable et s'améliore avec l'expérience :
+- Les joueurs novices jouent leur intuition brute
+- Les joueurs intermédiaires anticipent le comportement de la foule
+- Les joueurs experts modélisent les stratégies des autres joueurs ET leur propre influence sur le résultat
+
+Ce jeu est classifiable comme **"Skill-Based Behavioral Prediction Competition"** — une catégorie légalement distincte du gambling dans l'ensemble des juridictions majeures.
+
+---
+
+## PARTIE 2 — LE MÉCANISME COMPLET
+
+### 2.1 Les composantes fondamentales
+
+**LE SEED** (le déclencheur)
+Un mot, un concept, ou une courte phrase apparaît à l'écran au début de chaque partie. Il est tiré d'une liste curatée. Le Seed n'a pas de "bonne réponse" — il est purement subjectif et sert de point focal commun pour ancrer les décisions des joueurs.
+
+Exemples de Seeds :
+- Des mots évocateurs : `SILENCE`, `TRAHISON`, `VERTIGE`, `AUBE`, `MACHINE`
+- Des concepts abstraits : `LA VALEUR D'UN SECRET`, `LE PREMIER MENSONGE`, `AVANT LA CHUTE`
+- Des tensions : `CONFIANCE AVEUGLE`, `COURAGE OU LÂCHETÉ`, `SEUL CONTRE TOUS`
+
+**LA PROPHÉTIE** (canal public)
+Un nombre de 1 à 100 que chaque joueur déclare publiquement. Visible par tous les autres joueurs en temps réel. Représente ce que le joueur annonce comme étant sa prédiction du résultat final.
+
+**LA VOLONTÉ** (canal privé)
+Un nombre de 1 à 100 que chaque joueur soumet secrètement. Inconnu des autres joueurs jusqu'au Reveal. Représente le nombre par lequel le joueur contribue réellement au résultat final.
+
+**LE RÉSULTAT**
+La moyenne tronquée de toutes les Volontés (les valeurs extrêmes haute et basse sont exclues du calcul pour limiter la manipulation). C'est le nombre réel que les Prophéties devaient prédire.
+
+**LE SCORE**
+Une formule qui combine trois composantes : la précision de la Prophétie par rapport au Résultat, l'audace de la Prophétie par rapport au consensus des autres Prophéties, et l'unicité de la Prophétie par rapport aux choix des autres joueurs.
+
+---
+
+### 2.2 Le déroulement d'une partie — seconde par seconde
+
+#### PHASE 0 — LOBBY (15 secondes avant le début)
+
+```
+┌─────────────────────────────────────────┐
+│  PROCHAIN ROUND DANS : 12s              │
+│                                         │
+│  Joueurs dans la salle : 8 / 10         │
+│  Pool actuel : 9.80 USDC                │
+│  Jackpot accumulé : +4.20 USDC          │
+│  Pool total : 14.00 USDC                │
+│                                         │
+│  [ENTRER DANS LA PARTIE — 1 USDC]       │
+└─────────────────────────────────────────┘
+```
+
+Les joueurs voient le pool en temps réel. Si un jackpot est accumulé des parties précédentes, il est affiché distinctement. Cette transparence totale est rendue possible et crédible par le smart contract on-chain.
+
+---
+
+#### PHASE 1 — LA PROPHÉTIE (30 secondes)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│                    S I L E N C E                        │
+│                                                         │
+│  ←————————————————————•————————————————————→            │
+│  1                    47                  100           │
+│                                                         │
+│  Ta Prophétie : 47    [LOCK MA PROPHÉTIE 🔒]            │
+│                                                         │
+│  ════════════════════════════════════════════           │
+│  Prophéties des autres joueurs (temps réel) :           │
+│                                                         │
+│  ⬛ Joueur A  ——————•  31   [LOCKED 🔒]                  │
+│  🟦 Joueur B  ————————————•  45  (en mouvement)         │
+│  🟩 Joueur C  ——•  18    [LOCKED 🔒]                     │
+│  🟥 Joueur D  ————————•  40  (en mouvement)              │
+│  🟨 Joueur E  ——————————————•  52  (en mouvement)        │
+│  🟪 Joueur F  ——•  22    [LOCKED 🔒]                     │
+│  🟧 Joueur G  ————•  25  (en mouvement)                  │
+│                                                         │
+│  Médiane visible : 36    ⏱ 18s restantes                │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Ce qui se passe durant cette phase :**
+
+1. Le Seed s'affiche au centre. Tous les joueurs voient le même mot simultanément.
+
+2. Chaque joueur déplace son curseur librement entre 1 et 100. Le mouvement de son curseur est visible par tous les autres joueurs en temps réel (sous la forme d'un point coloré sur une barre commune).
+
+3. À tout moment, un joueur peut **LOCK** sa Prophétie. Une fois lockée, sa position est figée et affichée en or. Il ne peut plus la modifier.
+
+4. La médiane des Prophéties visibles est calculée et affichée en temps réel, créant une référence commune visible.
+
+5. La **tension stratégique du lock** : locker tôt signifie moins d'information (tu ne sais pas encore où vont les autres) mais plus d'influence (les autres voient ta position et peuvent y réagir). Locker tard donne plus d'information mais aucune influence sur les autres — les meilleures positions sont peut-être déjà prises.
+
+6. Si un joueur n'a pas locké à la fin des 30 secondes, sa Prophétie est automatiquement lockée à la position actuelle de son curseur.
+
+**Ce que les joueurs peuvent inférer durant cette phase :**
+- La distribution générale des Prophéties (mais pas les Volontés)
+- Les joueurs qui ont locké tôt (signal de confiance ou stratégie d'influence ?)
+- Les joueurs qui bougent beaucoup (indécision ou recherche d'information ?)
+- La médiane (le centre de gravité des Prophéties)
+
+---
+
+#### PHASE 2 — LA VOLONTÉ (20 secondes)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│                    S I L E N C E                        │
+│                                                         │
+│  Prophéties finales (figées) :                          │
+│  ⬛A:31  🟦B:45  🟩C:18  🟥D:40  🟨E:52  🟪F:22  🟧G:25│
+│                                                         │
+│  ─────────────────────────────────────────────────      │
+│  MAINTENANT : Ta VOLONTÉ (secrète)                      │
+│                                                         │
+│  ←————————————•——————————————————————→                  │
+│  1            34                    100                  │
+│                                                         │
+│  Ta Volonté : 34   (personne ne la voit)                │
+│                                                         │
+│  [SOUMETTRE MA VOLONTÉ 🔐]                              │
+│                                                         │
+│  ⏱ 14s restantes                                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Ce qui se passe durant cette phase :**
+
+1. Toutes les Prophéties sont figées et visibles. La phase de signalisation public est terminée.
+
+2. Une nouvelle barre apparaît — **secrète**. Chaque joueur place sa Volonté sans que personne ne la voie.
+
+3. La Volonté peut être identique ou différente de la Prophétie. C'est le choix stratégique central du jeu :
+
+   - **Jouer honnête** : Prophétie = Volonté. Tu contribues exactement ce que tu as déclaré. Tu pariais que ta lecture du groupe était juste.
+   
+   - **Tirer la moyenne** : Volonté < Prophétie. Tu as déclaré 50 mais tu pousses à 30. Tu paries que ta Prophétie de 50 était trop haute et que le vrai résultat sera plus bas — ce qui se réalise SI d'autres font pareil.
+   
+   - **Contre-tirer** : Volonté > Prophétie. Tu as déclaré 40 mais tu pousses à 65. Tu paries que les autres vont tirer vers le bas et que tu peux compenser.
+
+4. La soumission est **simultanée** (pas séquentielle) — personne n'a d'avantage lié à l'ordre.
+
+5. Si un joueur ne soumet pas sa Volonté dans le temps imparti, sa Volonté est automatiquement égale à sa Prophétie.
+
+**Le dilemme fondamental de cette phase :**
+Si tu crois que le vrai résultat sera 34, tu dois décider :
+- Prophétiser 34 ET vouloir 34 → honnête mais sans avantage
+- Prophétiser 34 ET vouloir 20 → tu tires vers le bas, la moyenne baisse, ta Prophétie de 34 devient trop haute → tu te rates toi-même
+- Prophétiser 50 ET vouloir 34 → tu as déclaré 50 mais tu contribues 34, si les autres font pareil la moyenne sera ~34 et ta Prophétie de 50 est mauvaise
+
+**C'est une spirale récursive infinie sans équilibre stable.** Le jeu ne peut jamais être "résolu".
+
+---
+
+#### PHASE 3 — LE REVEAL (15 secondes)
+
+C'est **le moment le plus important du jeu**. Il est conçu pour être spectaculaire.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│                 R É V É L A T I O N                     │
+│                                                         │
+│  Prophéties :  A:31  B:45  C:18  D:40  E:52  F:22  G:25│
+│                                                         │
+│  Volontés :                                             │
+│                                                         │
+│  ⬛ Joueur A : ████████████████ 38          [+7 vs P]   │
+│     Résultat provisoire : 38.0                          │
+│                                                         │
+│  🟦 Joueur B : ████████ 22               [-23 vs P]     │
+│     Résultat provisoire : 30.0                          │
+│                                                         │
+│  🟩 Joueur C : ████████████████████ 45    [+27 vs P]   │
+│     Résultat provisoire : 35.0                          │
+│                                                         │
+│  🟥 Joueur D : ███████████ 29              [-11 vs P]   │
+│     Résultat provisoire : 33.5                          │
+│                                                         │
+│  🟨 Joueur E : ██████████████ 33           [-19 vs P]   │
+│     Résultat provisoire : 33.4                          │
+│                                                         │
+│  🟪 Joueur F : ████████████████████ 47    [+25 vs P]   │
+│     Résultat provisoire : 35.7                          │
+│                                                         │
+│  🟧 Joueur G : ██████████████████ 41      [+16 vs P]   │
+│                                                         │
+│         ══════════════════════════════                  │
+│         RÉSULTAT FINAL : 36.4                           │
+│         ══════════════════════════════                  │
+│                                                         │
+│  🏆 GAGNANT : Joueur E — Prophétie 52                   │
+│               Score : 0.847                             │
+│               GAGNÉ : 7.60 USDC                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Ce qui se passe durant cette phase :**
+
+1. Les Volontés se révèlent **une par une**, avec un délai dramatique entre chaque.
+
+2. Après chaque révélation, le Résultat provisoire se met à jour en direct.
+
+3. L'écart entre chaque Volonté et la Prophétie du même joueur s'affiche : `[+7 vs P]` ou `[-23 vs P]`. Ce chiffre dit immédiatement au spectateur "ce joueur a menti" ou "ce joueur était honnête".
+
+4. La tension monte car on ne sait pas encore quel gagnant va émerger — le Résultat final change à chaque révélation.
+
+5. Une fois toutes les Volontés révélées, le Résultat final s'affiche, les scores se calculent, et le gagnant apparaît.
+
+**Pourquoi le Joueur E (Prophétie 52) gagne-t-il ici ?**
+- Résultat final = 36.4
+- Sa Prophétie de 52 semble très loin du résultat...
+- Mais sa Précision = 1 - |52 - 36.4| / 100 = 0.844
+- Son Audace = |52 - médiane(31,45,18,40,52,22,25)| / 50 = |52-31| / 50 = 0.42
+- Son Unicité = élevée car personne d'autre n'était à 52
+- Score = 0.844 × 1.42 × 1.3 = 0.847 → le plus haut
+
+*Le joueur qui a osé aller là où personne d'autre n'est allé, et qui avait quand même une lecture correcte de la direction du résultat, gagne.*
+
+---
+
+#### PHASE 4 — TRANSITION (5 secondes)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  PROCHAIN SEED DANS : 4s                                │
+│                                                         │
+│  Ta performance ce round :                              │
+│  Prophétie : 40  │  Volonté : 29  │  Résultat : 36.4   │
+│  Écart Prophétie : -3.6   Score : 0.312   Rang : 5/7   │
+│                                                         │
+│  Analyse : Ta Prophétie était proche mais tu n'étais    │
+│  pas assez audacieux — 4 autres joueurs étaient         │
+│  dans ta zone. Essaie d'être plus unique la prochaine.  │
+│                                                         │
+│  [RESTER DANS LA SALLE]    [QUITTER]                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+La transition est conçue pour être **le moment du "j'aurais dû"** — le mécanisme addictif le plus puissant en game design. Le joueur voit exactement ce qui l'a fait perdre et comprend précisément ce qu'il doit faire différemment. Ce sentiment de compétence accessible déclenche immédiatement l'envie de rejouer.
+
+---
+
+### 2.3 La formule de scoring — détail complet
+
+```
+Score = Précision × Hardiesse × Unicité
+```
+
+**Précision**
+```
+Précision = 1 - (|Prophétie - Résultat| / 100)
+```
+Varie de 0 (Prophétie complètement fausse) à 1 (Prophétie parfaite).
+Une Prophétie à 10 points du Résultat donne une Précision de 0.90.
+Une Prophétie à 50 points donne 0.50.
+
+**Hardiesse**
+```
+Hardiesse = 1 + (|Prophétie - Médiane des Prophéties| / 50)
+```
+Varie de 1 (Prophétie identique à la médiane — aucun bonus) à 3 (Prophétie aux extrêmes opposés de la médiane).
+Une Prophétie à 20 points de la médiane donne un multiplicateur de 1.40.
+Une Prophétie à 50 points de la médiane donne un multiplicateur de 2.00.
+
+*Pourquoi multiplier et non additionner ?* La multiplicativité signifie que la Hardiesse amplifie la Précision — être audacieux est récompensé massivement SI tu as raison, mais ne compense pas l'inexactitude. Un joueur audacieux qui se trompe ne gagne rien.
+
+**Unicité**
+```
+Unicité = 1 - (Nb joueurs dont la Prophétie est à ±5 points de la tienne / Nb total joueurs)
+```
+Varie de 1 (tu es seul dans ta zone — unicité maximale) à 0 (tous les joueurs sont dans ta zone).
+Si tu es seul → multiplicateur de 1.0 (plein)
+Si 2 joueurs sur 10 sont dans ta zone → multiplicateur de 0.8
+Si 5 joueurs sur 10 sont dans ta zone → multiplicateur de 0.5
+
+*L'Unicité empêche la collusion* : si 5 joueurs s'entendent pour annoncer le même nombre, ils se pénalisent mutuellement via ce multiplicateur. La stratégie dominante devient toujours de diverger.
+
+**Cas limite : Score nul**
+Si la Précision est inférieure à 0.1 (Prophétie à plus de 90 points du Résultat), le score est 0. Il faut une lecture minimalement correcte pour que l'Audace et l'Unicité aient un sens.
+
+---
+
+### 2.4 Distribution des gains
+
+```
+Pool total = Σ(mises de tous les joueurs)
+Pool redistribué = Pool total × 98%
+Trésor protocole = Pool total × 2%
+
+Distribution du Pool redistribué :
+├── Rang 1 (Score le plus élevé)  → 55% du Pool redistribué
+├── Rang 2                         → 28% du Pool redistribué
+└── Rang 3                         → 17% du Pool redistribué
+    (Les rangs 4+ ne reçoivent rien — mise perdue)
+```
+
+**Mécanisme de Jackpot (Carry-over)**
+
+Si le Score du gagnant est inférieur à un seuil d'Audace minimum (Score < 0.50), cela signifie que personne n'a pris de risques significatifs ce round. Dans ce cas :
+- 40% de la part du Rang 1 n'est pas distribuée
+- Ces fonds s'accumulent dans un **Jackpot**
+- Le Jackpot est affiché en permanence dans le lobby
+- Le Jackpot est distribué au premier joueur dont le Score dépasse 0.50 dans un round futur
+
+Ce mécanisme crée naturellement des événements à enjeux élevés — les Jackpots enflent jusqu'à ce qu'un joueur suffisamment audacieux les déverrouille.
+
+**Exemple concret — Salle de 10 joueurs à 1 USDC :**
+```
+Pool total : 10 USDC
+Trésor : 0.20 USDC
+Pool redistribué : 9.80 USDC
+
+Rang 1 : 5.39 USDC  (×5.39 sur la mise)
+Rang 2 : 2.74 USDC  (×2.74)
+Rang 3 : 1.67 USDC  (×1.67)
+Rangs 4-10 : 0 USDC (mise perdue)
+```
+
+---
+
+### 2.5 Les différentes tailles de salles
+
+| Salle | Joueurs | Mise | Pool max | Dynamique |
+|---|---|---|---|---|
+| **WHISPER** | 3-5 | 0.50 USDC | 2.45 USDC | Duel psychologique pur, très personnel |
+| **STANDARD** | 6-10 | 1 USDC | 9.80 USDC | Équilibre optimal entre lecture individuelle et collective |
+| **ARENA** | 11-30 | 5 USDC | 146 USDC | Comportements de foule émergent, méta plus statistique |
+| **COLISEUM** | 31-100 | 10 USDC | 980 USDC | Prédiction macro, pools événementiels, spectacle de masse |
+| **EXODUS** | 100+ | Variable | Illimité | Tournois spéciaux, events live, maximum spectacle |
+
+La dynamique change fondamentalement selon la taille :
+- **3-5 joueurs** : chaque adversaire est identifié, les décisions sont ultra-personnelles, proche du poker
+- **6-10 joueurs** : équilibre entre lecture individuelle et prédiction collective
+- **30+ joueurs** : on prédit le comportement agrégé d'une population, pas d'individus spécifiques
+
+---
+
+## PARTIE 3 — LA MÉTA STRATÉGIQUE
+
+### 3.1 L'évolution de la stratégie selon le niveau
+
+**Niveau Débutant : L'Intuition Brute**
+Le joueur lit le Seed et choisit le nombre qui lui semble "juste". Sa Volonté est identique à sa Prophétie. Il joue honnêtement par défaut parce qu'il ne comprend pas encore l'avantage de diverger.
+
+Stratégie : `Prophétie = Intuition. Volonté = Prophétie.`
+
+Résultat typique : Rang 4-7. Parfois chanceux, jamais systématiquement bon.
+
+**Niveau Intermédiaire : La Lecture de Foule**
+Le joueur commence à modéliser les autres. Il sait que la foule tend vers certains nombres pour certains Seeds. Il ajuste sa Prophétie pour anticiper le consensus ET diverge légèrement pour gagner en Unicité.
+
+Stratégie : `Prophétie = Estimation du centre de gravité du groupe + décalage. Volonté ≈ Prophétie ± 5-10.`
+
+Résultat typique : Rang 2-4. Gagne parfois, développe une intuition.
+
+**Niveau Avancé : La Double Couche**
+Le joueur comprend que les Volontés créent le Résultat. Il modélise non pas "où vont annoncer les autres" mais "où vont-ils réellement vouloir aller". Il sait que les joueurs intermédiaires tirent leurs Volontés vers le bas par prudence, donc il anticipe un Résultat plus bas que le consensus visible.
+
+Stratégie :
+```
+1. Observer les Prophéties pour modéliser les intentions déclarées
+2. Estimer où les Volontés vont réellement aller (typiquement 10-20% plus bas)
+3. Prophétiser à ce niveau estimé
+4. Voter avec sa Volonté soit honnêtement, soit pour manipuler légèrement la moyenne
+```
+
+**Niveau Expert : La Méta-Anticipation**
+Le joueur expert sait que les joueurs avancés tirent leurs Volontés vers le bas, donc il les anticipe ET anticipe les joueurs qui anticipent les tirages. Il joue à un niveau récursif supplémentaire.
+
+Il a également une connaissance approfondie des **profils comportementaux** de ses adversaires réguliers :
+- "Ce joueur lock toujours tôt → il suit sa première intuition, peu stratégique en Volonté"
+- "Ce joueur lock en dernier → il maximise l'information, sa Prophétie est très calculée"
+- "Ce joueur prophétise toujours dans la zone 40-60 → jamais d'Audace → pas dangereux pour le Rang 1"
+
+**Niveau Légendaire : L'Influence**
+À ce niveau, le joueur comprend qu'en lockant tôt avec une Prophétie crédible, il peut **influencer les Prophéties des autres** et donc influencer le Résultat final. Il construit délibérément une réputation pour rendre ses signaux plus persuasifs.
+
+---
+
+### 3.2 Pourquoi la méta ne peut jamais être "résolue"
+
+DRIFT est structurellement résistant à la solution pour trois raisons :
+
+**Raison 1 — La récursivité infinie**
+Si la stratégie optimale était "toujours vouloir 30 pour le Seed SILENCE", alors tout le monde l'appliquerait. Alors le Résultat serait toujours 30. Alors l'optimal serait de Prophétiser 30 ET de vouloir quelque chose d'autre. Ce qui brise la stratégie. Il n'existe pas d'équilibre de Nash stable.
+
+**Raison 2 — La dépendance au groupe**
+La meilleure stratégie dépend des joueurs présents dans la salle. Une stratégie optimale contre des débutants est terrible contre des experts. Le jeu ne peut pas être joué de manière isolée.
+
+**Raison 3 — L'évolution des Seeds**
+Chaque nouveau Seed réinitialise le point de Schelling. Un joueur peut avoir une excellente intuition pour `SILENCE` et être complètement perdu pour `VERTIGE`. La compétence est transférable mais pas totalement.
+
+---
+
+### 3.3 La topographie des Seeds — l'actif central
+
+Avec le temps, la communauté de joueurs développe une **conscience collective** des associations entre Seeds et Résultats :
+
+```
+SILENCE    → résulte historiquement autour de 25-35
+CHAOS      → résulte historiquement autour de 65-80
+CONFIANCE  → résulte historiquement autour de 55-65
+TRAHISON   → résulte historiquement autour de 30-45
+RICHESSE   → résulte historiquement autour de 70-85
+```
+
+Cette topographie est l'actif le plus précieux du jeu. Elle représente la connaissance culturelle accumulée de la communauté. Elle est **impossible à transférer ou copier** : un clone avec une base de joueurs vierge n'a aucune topographie. Les joueurs qui ont joué 500 parties ont une intuition calibrée que les nouveaux joueurs mettent des semaines à développer.
+
+C'est le moat le plus profond du jeu : **la mémoire collective EST le jeu.**
+
+---
+
+## PARTIE 4 — LE MODE STREAMER
+
+### 4.1 Le problème résolu
+
+Dans les jeux traditionnels, un streamer qui joue en direct révèle ses choix à son chat, ce qui crée des avantages/désavantages injustes. DRIFT résout ce problème structurellement.
+
+La Prophétie est déjà publique par définition — tout le monde la voit. La Volonté est secrète — le streamer ne la révèle à personne avant le Reveal. Le chat joue donc sur les mêmes informations que les autres joueurs : les Prophéties publiques. L'information privée du streamer (sa Volonté) reste cachée même en stream.
+
+### 4.2 La dynamique streamer-chat
+
+**Ce que le chat voit :**
+- La Prophétie du streamer (publique, comme tous les autres)
+- Le raisonnement verbal du streamer ("Je mets 58 parce que je sens que le groupe va aller vers le haut pour CHAOS")
+- Les autres Prophéties en temps réel
+
+**Ce que le chat ne voit pas :**
+- La Volonté du streamer (soumise secrètement, sans commentaire)
+
+**Ce que ça crée :**
+Le chat peut analyser, débattre, prédire, conseiller — mais ne peut pas sabotager le jeu. Et le moment du Reveal devient **le moment de vérité** : "Le streamer avait prophétisé 58 mais sa Volonté était 23. POURQUOI ???"
+
+### 4.3 Les formats de stream possibles
+
+**Format 1 — Analyse en direct**
+Le streamer commente ses décisions Prophétie en temps réel, engage le chat dans la réflexion, mais garde sa Volonté secrète. Le Reveal devient un twist narratif.
+
+**Format 2 — Chat vs Streamer**
+Le streamer joue dans une salle où son chat participe également. Le chat essaie de "lire" le streamer via ses Prophéties passées et ses patterns comportementaux on-chain.
+
+**Format 3 — Le Mensonge de Confiance**
+Le streamer annonce explicitement une Prophétie élevée ("Je mets 80, je suis sûr que CHAOS monte haut") pour influencer les Prophéties du chat, puis soumet une Volonté très basse. La révélation crée du chaos narratif.
+
+**Format 4 — Multi-Stream**
+Deux streamers s'affrontent dans la même salle, leurs deux audiences regardant simultanément. La rivalité des audiences est le contenu.
+
+### 4.4 Exemple narratif d'un round en stream
+
+```
+SEED : TRAHISON
+
+[Streamer regarde l'écran]
+"OK. Trahison. Je sens que tout le monde va aller bas sur ça.
+ La trahison c'est quelque chose de caché, de petit... 
+ Je vais contrer ça. Je mets 71."
+
+[Chat explose]
+"71 ??? 😱"
+"Il est fou"
+"Non c'est un piège regardez il ment"
+"Je mets 25 moi"
+"Streamer always bluffs"
+
+[Autres joueurs prophétisent : 28, 35, 42, 19, 38, 55]
+
+[Phase 2 — le streamer soumet sa Volonté en silence, sourire énigmatique]
+
+[REVEAL]
+→ Joueur A révèle : 31
+→ Joueur B révèle : 28
+→ Joueur C révèle : 38
+→ Joueur D révèle : 22
+→ Joueur E révèle : 33
+→ STREAMER révèle : 18 !!!
+
+"DIX-HUIT ??? IL AVAIT MIS 71 EN PROPHÉTIE ET 18 EN VOLONTÉ ???"
+
+Résultat final : 30.4
+
+Prophétie du streamer : 71 → écart = 40.6 → Précision = 0.59
+Mais son Audace = (71 - médiane(33)) / 50 = 0.76
+Uniquité = il était seul à 71 = 1.0
+
+Score = 0.59 × 1.76 × 1.0 = 1.04 → Score pondéré : il gagne.
+
+"MAIS COMMENT IL A GAGNÉ IL ÉTAIT À 40 POINTS DU RÉSULTAT ???"
+"Parce que j'ai pris le seul risque audacieux ce round. 
+ Vous avez tous joué safe. La formule récompense l'audace."
+```
+
+---
+
+## PARTIE 5 — LE MOAT CONCURRENTIEL
+
+### 5.1 Pourquoi un clone avec 10x le budget perd dans 18 mois
+
+**Raison 1 — La topographie est l'actif**
+La topographie des Seeds (les associations historiques entre Seeds et Résultats) est un actif non-transférable. Elle s'accumule uniquement à travers des parties réelles. Un clone commence avec un terrain vierge — les joueurs expérimentés de DRIFT ont des années d'intuition calibrée que ce clone ne peut pas offrir.
+
+**Raison 2 — Les profils comportementaux sont on-chain**
+Chaque joueur a un historique on-chain : ses Prophéties passées, ses Volontés passées, ses écarts, ses patterns de lock timing, ses scores par catégorie de Seed. Ces profils sont des actifs identitaires que les joueurs ne peuvent pas "migrer" vers un clone. Reconstruire sa réputation prendrait des mois.
+
+**Raison 3 — L'effet réseau est mécanique**
+DRIFT est structurellement meilleur avec plus de joueurs :
+- Plus de joueurs = distribution plus riche des Prophéties = plus de signal
+- Plus de joueurs = meilleure couverture des zones = plus de compétition pour l'Unicité
+- Plus de joueurs = la topographie se construit plus vite et devient plus précise
+Un clone avec 1000 joueurs est un jeu fondamentalement différent (et inférieur) à DRIFT avec 100,000 joueurs.
+
+**Raison 4 — La méta est une connaissance communautaire**
+Les stratégies méta (comment jouer contre différents types de joueurs, quelles zones exploiter pour quel Seed) sont des connaissances développées collectivement par la communauté au fil de milliers de parties. Cette connaissance vit dans les forums, les streams, les discussions. Elle appartient à la communauté DRIFT, pas au protocole. Un clone ne peut pas la copier.
+
+**Raison 5 — L'identité des joueurs est incopiable**
+"Ce joueur est un expert des Seeds à haute variance", "ce streamer est connu pour ses Volontés extrêmes" — ces réputations sont construites sur la blockchain et dans la culture du jeu. Ce sont des actifs sociaux non-transférables.
+
+---
+
+## PARTIE 6 — ARCHITECTURE TECHNIQUE
+
+### 6.1 Le Commit-Reveal Scheme pour les Volontés
+
+La confidentialité des Volontés est garantie on-chain via un schéma commit-reveal classique :
+
+**Phase Commit (durant Phase 2) :**
+```
+hash = keccak256(will_value + salt)
+player soumet : hash → smart contract
+```
+Le joueur soumet seulement le hash de sa Volonté — personne ne peut en déduire la valeur.
+
+**Phase Reveal (début Phase 3) :**
+```
+player soumet : will_value + salt
+smart contract vérifie : keccak256(will_value + salt) == hash stocké
+si vrai : Volonté acceptée
+```
+La Volonté est révélée et vérifiable. Personne ne peut mentir sur sa Volonté après avoir committé.
+
+### 6.2 Calcul du Résultat on-chain
+
+```solidity
+function computeResult(uint8[] memory wills) pure returns (uint8) {
+    // Trier les volontés
+    // Exclure la valeur min et la valeur max (moyenne tronquée)
+    // Calculer la moyenne des valeurs restantes
+    // Retourner le résultat arrondi
+}
+```
+
+Le calcul est entièrement on-chain, déterministe, et vérifiable par n'importe qui. Zéro confiance requise dans l'opérateur du protocole.
+
+### 6.3 Smart Contract — Flux Principal
+
+```
+joinRoom(roomId) → payer la mise → recevoir un slot
+submitProphecy(roomId, prophecyValue) → Prophétie publique
+lockProphecy(roomId) → Prophétie figée
+commitWill(roomId, willHash) → commit secret
+revealWill(roomId, willValue, salt) → reveal + vérification
+computeAndDistribute(roomId) → calcul des scores + transferts
+```
+
+### 6.4 Stack recommandé
+
+| Couche | Technologie | Raison |
+|---|---|---|
+| Blockchain | Base ou Arbitrum | Frais < $0.01, finalité rapide |
+| Smart Contract | Solidity + Commit-Reveal | Confidentialité + auditabilité |
+| Temps réel | WebSocket (Ably/Pusher) | Synchronisation des curseurs |
+| Frontend | Next.js + wagmi | Performance + wallet integration |
+| Animations | Framer Motion + GSAP | Le Reveal doit être spectaculaire |
+| Identité | Privy ou Dynamic | Onboarding frictionless |
+
+---
+
+## PARTIE 7 — LÉGALITÉ ET POSITIONNEMENT
+
+### 7.1 L'argument légal en une phrase
+
+> "DRIFT est une compétition de prédiction comportementale basée sur la compétence, dans laquelle les joueurs prédisent l'agrégat des décisions humaines de leurs adversaires — une compétence mesurable, améliorable, et entièrement distincte du hasard."
+
+### 7.2 Comparaison avec les précédents légaux
+
+| Précédent | Légalité | Analogie avec DRIFT |
+|---|---|---|
+| Poker en compétition | ✅ Legal dans ~80 pays | Compétence, lecture des adversaires, information cachée |
+| Esports tournaments | ✅ Legal partout | Compétition skill-based avec entry fee et prize pool |
+| Fantasy sports (DFS) | ✅ Legal dans la plupart des États US | Prédiction de performances humaines |
+| Quiz shows (Jeopardy) | ✅ Legal universellement | Connaissance et compétence, pas de hasard |
+| Trading compétitif | ✅ Legal | Prédiction de comportements collectifs |
+
+### 7.3 Points de robustesse légale additionnels
+
+1. **Résultat déterministe** : Pour un set donné de Prophéties et de Volontés, il n'existe qu'un seul Résultat possible. Aucune variabilité externe.
+
+2. **Compétence démontrable** : Les données on-chain montrent que les scores des joueurs expérimentés sont statistiquement supérieurs aux débutants sur 50+ parties. La compétence est mesurable.
+
+3. **Pas de "pure chance"** : Il est impossible de gagner systématiquement par chance. Une stratégie aléatoire donne un score espéré nul sur le long terme.
+
+4. **Transparence totale** : Toute la logique de calcul des scores et de distribution est on-chain, vérifiable et auditable.
+
+5. **Terminologie** : Entry fee (pas "mise"), Prize pool (pas "gains de casino"), Skill-based competition (pas "jeu d'argent").
+
+---
+
+## PARTIE 8 — SEEDS — EXEMPLES ET CATÉGORISATION
+
+### 8.1 Catégories de Seeds
+
+**Catégorie Émotions (haute variance attendue)**
+`PEUR`, `JOIE`, `HONTE`, `DÉSIR`, `REGRET`, `NOSTALGIE`, `COLÈRE`
+→ Ces Seeds provoquent des réponses très dispersées car les associations émotionnelles sont personnelles.
+
+**Catégorie Concepts Abstraits (variance moyenne)**
+`LIBERTÉ`, `JUSTICE`, `VÉRITÉ`, `POUVOIR`, `CONFIANCE`, `TRAHISON`
+→ Suffisamment universels pour créer un consensus partiel, suffisamment ouverts pour une dispersion stratégique.
+
+**Catégorie Tension Duale (meilleure mécanique)**
+`COURAGE OU LÂCHETÉ`, `SEUL CONTRE TOUS`, `AVANT LA TEMPÊTE`, `LE DERNIER SECRET`
+→ La tension intrinsèque du libellé crée une pression naturelle vers les extrêmes.
+
+**Catégorie Numérique Évocateur**
+`DIX SECONDES`, `UN MILLION`, `LA MOITIÉ`
+→ Le nombre dans le libellé influence l'ancrage cognitif des joueurs.
+
+**Catégorie Culturelle/Événementielle (Seeds spéciaux)**
+`BULLRUN`, `CRASH 2024`, `CONFIANCE EN SOI`
+→ Seeds liés à l'actualité, utilisés pour des rounds événementiels.
+
+### 8.2 Seeds communautaires
+
+Les joueurs peuvent proposer des Seeds via une gouvernance on-chain légère. Les Seeds approuvés sont intégrés dans le pool officiel. Cela crée un engagement communautaire et une évolution organique du jeu.
+
+---
+
+## PARTIE 9 — RÉSUMÉ EXÉCUTIF
+
+### 9.1 Le jeu en 30 mots
+
+> Un Seed apparaît. Tu prophétises publiquement un nombre. Tu votes secrètement un autre. Celui dont la Prophétie prédit le mieux la moyenne secrète des autres gagne 55% du pool.
+
+### 9.2 Les 5 raisons pour lesquelles DRIFT est le bon mécanisme
+
+1. **Légalement inattaquable** — Zéro hasard, 100% décisions humaines, compétence démontrable
+2. **Jamais résolvable** — La récursivité infinie empêche toute stratégie dominante stable
+3. **Spectaculaire** — Le Reveal seconde par seconde est du contenu pur
+4. **Moat structurel** — La topographie et les profils on-chain sont des actifs non-copiables
+5. **Addictif par mécanique** — Le "j'aurais dû" post-défaite est le déclencheur de rejoue le plus puissant
+
+### 9.3 Ce qui reste à définir
+
+Les éléments suivants sont délibérément laissés ouverts pour l'analyse et l'amélioration :
+- Le nom final du jeu
+- L'identité visuelle et l'univers
+- La formule exacte de scoring (les coefficients peuvent être ajustés)
+- Le seuil exact du mécanisme de Jackpot
+- La liste initiale des Seeds
+- Les éventuelles mécaniques additionnelles (power-ups, modes spéciaux, tournois)
+- Les potentielles améliorations fondamentales du mécanisme lui-même
+
+---
+
+*Ce document représente la version 1.0 du mécanisme DRIFT. Il est soumis à analyse critique et amélioration.*
