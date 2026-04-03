@@ -1,7 +1,7 @@
-# DRIFT — Document de Mécanisme Complet
-## Version 1.0 — À destination de Claude Opus 4.6
+# VOLTA — Document de Mécanisme Complet
+## Version 2.0 — Post-analyse et optimisation
 
-> **Note de lecture** : Ce document décrit exhaustivement le mécanisme d'un jeu compétitif Web3 appelé provisoirement "DRIFT". Il est conçu pour être lu dans sa totalité avant toute analyse ou suggestion d'amélioration. Chaque section est interdépendante.
+> **Note de lecture** : Ce document décrit exhaustivement le mécanisme optimisé d'un jeu compétitif Web3 appelé **VOLTA** (ex-DRIFT). Cette version intègre les corrections issues de l'analyse critique : formule de scoring rééquilibrée (Précision²), Hardiesse plafonnée, Unicité adaptative, minimum 6 joueurs, Jackpot renommé "Bonus d'Audace", et Reveal ordonné par crescendo dramatique.
 
 ---
 
@@ -15,11 +15,11 @@ C'est tout. Tout le reste est découlant de cette phrase.
 
 ### 1.2 La tension psychologique centrale
 
-DRIFT exploite un biais cognitif humain fondamental qui n'a jamais été gamifié : **la dissonance entre ce qu'on déclare et ce qu'on fait réellement.**
+VOLTA exploite un biais cognitif humain fondamental qui n'a jamais été gamifié : **la dissonance entre ce qu'on déclare et ce qu'on fait réellement.**
 
 En psychologie comportementale, ce phénomène s'appelle le *say-do gap* — l'écart structurel entre les intentions déclarées et les actions réelles. Les économistes l'étudient dans les enquêtes d'intention d'achat. Les politologues l'observent dans les sondages électoraux. Les thérapeutes le traitent en cabinet. **Personne n'en a encore fait un jeu.**
 
-Dans DRIFT, cet écart n'est pas un bug — c'est le moteur principal.
+Dans VOLTA, cet écart n'est pas un bug — c'est le moteur principal. Le nom « Volta » (du latin/italien : renversement) capture exactement ce moment où les Volontés secrètes renversent la lecture publique des Prophéties.
 
 ### 1.3 Pourquoi ce mécanisme est légalement inattaquable
 
@@ -62,22 +62,25 @@ Une formule qui combine trois composantes : la précision de la Prophétie par r
 
 ### 2.2 Le déroulement d'une partie — seconde par seconde
 
-#### PHASE 0 — LOBBY (15 secondes avant le début)
+#### PHASE 0 — LOBBY (10 secondes avant le début)
 
 ```
 ┌─────────────────────────────────────────┐
-│  PROCHAIN ROUND DANS : 12s              │
+│  PROCHAIN ROUND DANS : 8s               │
 │                                         │
 │  Joueurs dans la salle : 8 / 10         │
+│  (minimum 6 joueurs requis)              │
 │  Pool actuel : 9.80 USDC                │
-│  Jackpot accumulé : +4.20 USDC          │
+│  Bonus d'Audace : +4.20 USDC            │
 │  Pool total : 14.00 USDC                │
 │                                         │
 │  [ENTRER DANS LA PARTIE — 1 USDC]       │
 └─────────────────────────────────────────┘
 ```
 
-Les joueurs voient le pool en temps réel. Si un jackpot est accumulé des parties précédentes, il est affiché distinctement. Cette transparence totale est rendue possible et crédible par le smart contract on-chain.
+Les joueurs voient le pool en temps réel. Si un Bonus d'Audace est accumulé des parties précédentes, il est affiché distinctement avec une icône de flamme. Cette transparence totale est rendue possible et crédible par le smart contract on-chain.
+
+**Minimum 6 joueurs requis** pour lancer une partie compétitive. En dessous de 6, la moyenne tronquée est statistiquement fragile (un seul joueur peut contrôler le Résultat). Les salles de 3-5 joueurs sont réservées au mode entraînement (gratuit, sans mise).
 
 ---
 
@@ -114,7 +117,7 @@ Les joueurs voient le pool en temps réel. Si un jackpot est accumulé des parti
 
 2. Chaque joueur déplace son curseur librement entre 1 et 100. Le mouvement de son curseur est visible par tous les autres joueurs en temps réel (sous la forme d'un point coloré sur une barre commune).
 
-3. À tout moment, un joueur peut **LOCK** sa Prophétie. Une fois lockée, sa position est figée et affichée en or. Il ne peut plus la modifier.
+3. À tout moment **après un minimum de 5 secondes**, un joueur peut **LOCK** sa Prophétie. Une fois lockée, sa position est figée et affichée en or. Il ne peut plus la modifier. Le délai de 5 secondes empêche les avantages liés à la latence réseau.
 
 4. La médiane des Prophéties visibles est calculée et affichée en temps réel, créant une référence commune visible.
 
@@ -130,7 +133,7 @@ Les joueurs voient le pool en temps réel. Si un jackpot est accumulé des parti
 
 ---
 
-#### PHASE 2 — LA VOLONTÉ (20 secondes)
+#### PHASE 2 — LA VOLONTÉ (15 secondes)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -150,7 +153,7 @@ Les joueurs voient le pool en temps réel. Si un jackpot est accumulé des parti
 │                                                         │
 │  [SOUMETTRE MA VOLONTÉ 🔐]                              │
 │                                                         │
-│  ⏱ 14s restantes                                       │
+│  ⏱ 11s restantes                                       │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -172,6 +175,8 @@ Les joueurs voient le pool en temps réel. Si un jackpot est accumulé des parti
 
 5. Si un joueur ne soumet pas sa Volonté dans le temps imparti, sa Volonté est automatiquement égale à sa Prophétie.
 
+6. **Soumission accélérée** : si tous les joueurs ont soumis leur Volonté avant la fin du timer, la Phase 3 démarre immédiatement. Les experts jouent vite, les débutants ne sont pas pénalisés.
+
 **Le dilemme fondamental de cette phase :**
 Si tu crois que le vrai résultat sera 34, tu dois décider :
 - Prophétiser 34 ET vouloir 34 → honnête mais sans avantage
@@ -182,9 +187,9 @@ Si tu crois que le vrai résultat sera 34, tu dois décider :
 
 ---
 
-#### PHASE 3 — LE REVEAL (15 secondes)
+#### PHASE 3 — LE REVEAL (12-18 secondes, dynamique)
 
-C'est **le moment le plus important du jeu**. Il est conçu pour être spectaculaire.
+C'est **le moment le plus important du jeu**. Il est conçu pour être spectaculaire. La durée s'adapte au nombre de joueurs (~1.5s par révélation + 3s pour le résultat final).
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -227,11 +232,11 @@ C'est **le moment le plus important du jeu**. Il est conçu pour être spectacul
 
 **Ce qui se passe durant cette phase :**
 
-1. Les Volontés se révèlent **une par une**, avec un délai dramatique entre chaque.
+1. Les Volontés se révèlent **une par une**, **ordonnées par écart croissant avec la Prophétie** (les joueurs "honnêtes" d'abord, les grands menteurs en dernier). Ce crescendo garanti maximise la tension — chaque révélation est plus spectaculaire que la précédente.
 
 2. Après chaque révélation, le Résultat provisoire se met à jour en direct.
 
-3. L'écart entre chaque Volonté et la Prophétie du même joueur s'affiche : `[+7 vs P]` ou `[-23 vs P]`. Ce chiffre dit immédiatement au spectateur "ce joueur a menti" ou "ce joueur était honnête".
+3. L'écart entre chaque Volonté et la Prophétie du même joueur s'affiche : `[+7 vs P]` ou `[-23 vs P]`. Ce chiffre dit immédiatement au spectateur "ce joueur a menti" ou "ce joueur était honnête". Si l'écart dépasse 20 points, une animation spéciale **"VOLTA !"** apparaît — le moment clip naturel du jeu.
 
 4. La tension monte car on ne sait pas encore quel gagnant va émerger — le Résultat final change à chaque révélation.
 
@@ -239,13 +244,13 @@ C'est **le moment le plus important du jeu**. Il est conçu pour être spectacul
 
 **Pourquoi le Joueur E (Prophétie 52) gagne-t-il ici ?**
 - Résultat final = 36.4
-- Sa Prophétie de 52 semble très loin du résultat...
-- Mais sa Précision = 1 - |52 - 36.4| / 100 = 0.844
-- Son Audace = |52 - médiane(31,45,18,40,52,22,25)| / 50 = |52-31| / 50 = 0.42
-- Son Unicité = élevée car personne d'autre n'était à 52
-- Score = 0.844 × 1.42 × 1.3 = 0.847 → le plus haut
+- Sa Prophétie de 52 semble loin du résultat...
+- Mais sa Précision² = (1 - |52 - 36.4| / 100)² = 0.844² = 0.712
+- Son Hardiesse = 1 + min(|52 - médiane(31)|, 35) / 50 = 1 + min(21, 35) / 50 = 1.42
+- Son Unicité = élevée car personne d'autre n'était à 52 → 1.0
+- Score = 0.712 × 1.42 × 1.0 = 1.011 → le plus haut
 
-*Le joueur qui a osé aller là où personne d'autre n'est allé, et qui avait quand même une lecture correcte de la direction du résultat, gagne.*
+*Le joueur qui a osé aller là où personne d'autre n'est allé, et qui avait quand même une lecture correcte de la direction du résultat, gagne. Mais avec la formule V2 (Précision²), le résultat reste intuitif : l'audace aide mais ne compense plus un écart énorme.*
 
 ---
 
@@ -263,18 +268,22 @@ C'est **le moment le plus important du jeu**. Il est conçu pour être spectacul
 │  pas assez audacieux — 4 autres joueurs étaient         │
 │  dans ta zone. Essaie d'être plus unique la prochaine.  │
 │                                                         │
+│  [ET SI... 🔄]  — Simule d'autres Prophéties            │
+│                                                         │
 │  [RESTER DANS LA SALLE]    [QUITTER]                    │
 └─────────────────────────────────────────────────────────┘
 ```
 
-La transition est conçue pour être **le moment du "j'aurais dû"** — le mécanisme addictif le plus puissant en game design. Le joueur voit exactement ce qui l'a fait perdre et comprend précisément ce qu'il doit faire différemment. Ce sentiment de compétence accessible déclenche immédiatement l'envie de rejouer.
+La transition est conçue pour être **le moment du "j'aurais dû"** — le mécanisme addictif le plus puissant en game design. Le joueur voit exactement ce qui l'a fait perdre et comprend précisément ce qu'il doit faire différemment.
+
+Le bouton **"Et si..."** permet au joueur de déplacer un curseur pour voir en temps réel comment son score aurait changé avec une Prophétie différente. C'est le **near-miss interactif** : quand le joueur voit "à 2 points près, tu gagnais 5.39 USDC", l'envie de rejouer est immédiate et irrésistible.
 
 ---
 
 ### 2.3 La formule de scoring — détail complet
 
 ```
-Score = Précision × Hardiesse × Unicité
+Score = Précision² × Hardiesse × Unicité
 ```
 
 **Précision**
@@ -282,32 +291,40 @@ Score = Précision × Hardiesse × Unicité
 Précision = 1 - (|Prophétie - Résultat| / 100)
 ```
 Varie de 0 (Prophétie complètement fausse) à 1 (Prophétie parfaite).
-Une Prophétie à 10 points du Résultat donne une Précision de 0.90.
-Une Prophétie à 50 points donne 0.50.
+Une Prophétie à 10 points du Résultat donne une Précision de 0.90, soit Précision² = 0.81.
+Une Prophétie à 50 points donne une Précision de 0.50, soit Précision² = 0.25.
+
+*Pourquoi Précision² ?* Le carré amplifie la pénalité pour les erreurs grossières. Un joueur à 5 pts d'écart perd peu (0.95² = 0.9025), mais un joueur à 30 pts est sévèrement pénalisé (0.70² = 0.49). Cela rend le résultat intuitif : le joueur le plus proche gagne la plupart du temps, mais l'audace peut faire la différence entre joueurs de précision similaire.
 
 **Hardiesse**
 ```
-Hardiesse = 1 + (|Prophétie - Médiane des Prophéties| / 50)
+Hardiesse = 1 + min(|Prophétie - Médiane des Prophéties|, 35) / 50
 ```
-Varie de 1 (Prophétie identique à la médiane — aucun bonus) à 3 (Prophétie aux extrêmes opposés de la médiane).
+Varie de 1 (Prophétie identique à la médiane — aucun bonus) à **1.70** (plafond atteint à 35+ points de la médiane).
 Une Prophétie à 20 points de la médiane donne un multiplicateur de 1.40.
-Une Prophétie à 50 points de la médiane donne un multiplicateur de 2.00.
+Une Prophétie à 35+ points de la médiane donne le multiplicateur maximal de 1.70.
+
+*Pourquoi plafonner ?* Sans plafond (V1), la Hardiesse pouvait atteindre ~3x, permettant à un joueur aux extrêmes (1 ou 100) de compenser une Précision médiocre. Avec le plafond à 1.70, prophétiser aux extrêmes n'est plus une stratégie dominante — il faut AUSSI être précis.
 
 *Pourquoi multiplier et non additionner ?* La multiplicativité signifie que la Hardiesse amplifie la Précision — être audacieux est récompensé massivement SI tu as raison, mais ne compense pas l'inexactitude. Un joueur audacieux qui se trompe ne gagne rien.
 
 **Unicité**
 ```
-Unicité = 1 - (Nb joueurs dont la Prophétie est à ±5 points de la tienne / Nb total joueurs)
+W = 3 + floor(N / 10)
+Unicité = 1 - (Nb joueurs dont la Prophétie est à ±W points de la tienne / Nb total joueurs)
 ```
-Varie de 1 (tu es seul dans ta zone — unicité maximale) à 0 (tous les joueurs sont dans ta zone).
-Si tu es seul → multiplicateur de 1.0 (plein)
-Si 2 joueurs sur 10 sont dans ta zone → multiplicateur de 0.8
-Si 5 joueurs sur 10 sont dans ta zone → multiplicateur de 0.5
+La fenêtre de proximité W s'adapte à la taille de la salle :
+- N=6 joueurs → W=3 (fenêtre ±3, stricte, chaque position compte)
+- N=10 joueurs → W=4
+- N=30 joueurs → W=6 (plus large car la distribution est naturellement plus étalée)
+- N=100 joueurs → W=13
 
-*L'Unicité empêche la collusion* : si 5 joueurs s'entendent pour annoncer le même nombre, ils se pénalisent mutuellement via ce multiplicateur. La stratégie dominante devient toujours de diverger.
+Varie de 1 (tu es seul dans ta zone — unicité maximale) à ~0 (tous les joueurs sont dans ta zone).
+
+*L'Unicité empêche la collusion* : si 5 joueurs s'entendent pour annoncer le même nombre, ils se pénalisent mutuellement via ce multiplicateur. La stratégie dominante devient toujours de diverger. La fenêtre adaptative garantit que l'Unicité reste pertinente quelle que soit la taille de salle.
 
 **Cas limite : Score nul**
-Si la Précision est inférieure à 0.1 (Prophétie à plus de 90 points du Résultat), le score est 0. Il faut une lecture minimalement correcte pour que l'Audace et l'Unicité aient un sens.
+Si la Précision est inférieure à 0.1 (Prophétie à plus de 90 points du Résultat), le score est 0. Il faut une lecture minimalement correcte pour que la Hardiesse et l'Unicité aient un sens.
 
 ---
 
@@ -325,15 +342,21 @@ Distribution du Pool redistribué :
     (Les rangs 4+ ne reçoivent rien — mise perdue)
 ```
 
-**Mécanisme de Jackpot (Carry-over)**
+**Mécanisme de Bonus d'Audace (ex-Jackpot / Carry-over)**
 
-Si le Score du gagnant est inférieur à un seuil d'Audace minimum (Score < 0.50), cela signifie que personne n'a pris de risques significatifs ce round. Dans ce cas :
-- 40% de la part du Rang 1 n'est pas distribuée
-- Ces fonds s'accumulent dans un **Jackpot**
-- Le Jackpot est affiché en permanence dans le lobby
-- Le Jackpot est distribué au premier joueur dont le Score dépasse 0.50 dans un round futur
+Le terme "Jackpot" est évité pour des raisons légales (connotation gambling). Le mécanisme est renommé **Bonus d'Audace** pour refléter sa nature : récompenser la prise de risque compétente.
 
-Ce mécanisme crée naturellement des événements à enjeux élevés — les Jackpots enflent jusqu'à ce qu'un joueur suffisamment audacieux les déverrouille.
+**Conditions d'accumulation :**
+Si le Score maximal du round est inférieur à **0.85**, cela signifie que personne n'a combiné précision, audace et unicité de manière remarquable ce round. Dans ce cas :
+- 30% de la part du Rang 1 n'est pas distribuée
+- Ces fonds s'accumulent dans un **Bonus d'Audace**
+- Le Bonus est affiché en permanence dans le lobby avec une icône de flamme
+- **Plafond** : le Bonus ne peut pas dépasser 10× la mise standard de la salle
+
+**Conditions de déblocage :**
+Le Bonus d'Audace est intégralement distribué au Rang 1 du premier round dont le Score maximal dépasse **1.20**. Ce seuil requiert une combinaison d'excellence : Précision² ≥ 0.80, Hardiesse ≥ 1.30, Unicité = 1.0. C'est un round où un joueur a été à la fois précis, audacieux ET unique.
+
+Ce mécanisme crée naturellement des événements à enjeux élevés — les Bonus d'Audace enflent jusqu'à ce qu'un joueur suffisamment brillant les déverrouille.
 
 **Exemple concret — Salle de 10 joueurs à 1 USDC :**
 ```
@@ -353,14 +376,16 @@ Rangs 4-10 : 0 USDC (mise perdue)
 
 | Salle | Joueurs | Mise | Pool max | Dynamique |
 |---|---|---|---|---|
-| **WHISPER** | 3-5 | 0.50 USDC | 2.45 USDC | Duel psychologique pur, très personnel |
+| **WHISPER** | 3-5 | Gratuit | — | **Mode entraînement uniquement.** Duel psychologique pur, pas de mise (moyenne tronquée non-fiable à N<6) |
 | **STANDARD** | 6-10 | 1 USDC | 9.80 USDC | Équilibre optimal entre lecture individuelle et collective |
 | **ARENA** | 11-30 | 5 USDC | 146 USDC | Comportements de foule émergent, méta plus statistique |
 | **COLISEUM** | 31-100 | 10 USDC | 980 USDC | Prédiction macro, pools événementiels, spectacle de masse |
 | **EXODUS** | 100+ | Variable | Illimité | Tournois spéciaux, events live, maximum spectacle |
 
+**Pourquoi minimum 6 joueurs pour les salles compétitives ?** La moyenne tronquée exclut le min et le max des Volontés. Avec 3 joueurs, il ne reste qu'une seule Volonté — le joueur médian contrôle le Résultat à 100%. Avec 4-5 joueurs, la robustesse reste insuffisante. À partir de 6, la moyenne tronquée porte sur 4 valeurs, rendant la manipulation individuelle marginale.
+
 La dynamique change fondamentalement selon la taille :
-- **3-5 joueurs** : chaque adversaire est identifié, les décisions sont ultra-personnelles, proche du poker
+- **3-5 joueurs (entraînement)** : apprentissage sans risque, découverte du mécanisme
 - **6-10 joueurs** : équilibre entre lecture individuelle et prédiction collective
 - **30+ joueurs** : on prédit le comportement agrégé d'une population, pas d'individus spécifiques
 
@@ -410,7 +435,7 @@ Il a également une connaissance approfondie des **profils comportementaux** de 
 
 ### 3.2 Pourquoi la méta ne peut jamais être "résolue"
 
-DRIFT est structurellement résistant à la solution pour trois raisons :
+VOLTA est structurellement résistant à la solution pour trois raisons :
 
 **Raison 1 — La récursivité infinie**
 Si la stratégie optimale était "toujours vouloir 30 pour le Seed SILENCE", alors tout le monde l'appliquerait. Alors le Résultat serait toujours 30. Alors l'optimal serait de Prophétiser 30 ET de vouloir quelque chose d'autre. Ce qui brise la stratégie. Il n'existe pas d'équilibre de Nash stable.
@@ -445,7 +470,7 @@ C'est le moat le plus profond du jeu : **la mémoire collective EST le jeu.**
 
 ### 4.1 Le problème résolu
 
-Dans les jeux traditionnels, un streamer qui joue en direct révèle ses choix à son chat, ce qui crée des avantages/désavantages injustes. DRIFT résout ce problème structurellement.
+Dans les jeux traditionnels, un streamer qui joue en direct révèle ses choix à son chat, ce qui crée des avantages/désavantages injustes. VOLTA résout ce problème structurellement.
 
 La Prophétie est déjà publique par définition — tout le monde la voit. La Volonté est secrète — le streamer ne la révèle à personne avant le Reveal. Le chat joue donc sur les mêmes informations que les autres joueurs : les Prophéties publiques. L'information privée du streamer (sa Volonté) reste cachée même en stream.
 
@@ -509,15 +534,16 @@ SEED : TRAHISON
 
 Résultat final : 30.4
 
-Prophétie du streamer : 71 → écart = 40.6 → Précision = 0.59
-Mais son Audace = (71 - médiane(33)) / 50 = 0.76
-Uniquité = il était seul à 71 = 1.0
+Prophétie du streamer : 71 → écart = 40.6 → Précision = 0.59, Précision² = 0.348
+Mais son Hardiesse = 1 + min(|71 - médiane(33)|, 35) / 50 = 1 + 35/50 = 1.70 (plafond)
+Unicité = il était seul à 71 = 1.0
 
-Score = 0.59 × 1.76 × 1.0 = 1.04 → Score pondéré : il gagne.
+Score = 0.348 × 1.70 × 1.0 = 0.592
 
-"MAIS COMMENT IL A GAGNÉ IL ÉTAIT À 40 POINTS DU RÉSULTAT ???"
-"Parce que j'ai pris le seul risque audacieux ce round. 
- Vous avez tous joué safe. La formule récompense l'audace."
+Avec la formule V2, le streamer ne gagne PAS automatiquement ce round — sa Précision² le pénalise lourdement. Il lui faudrait une composition d'adversaires encore plus safe pour que sa Hardiesse compense. C'est plus équilibré.
+
+"Il a pris un risque énorme avec 71, mais il était trop loin du résultat.
+ La formule récompense l'audace, mais pas l'audace aveugle."
 ```
 
 ---
@@ -527,23 +553,35 @@ Score = 0.59 × 1.76 × 1.0 = 1.04 → Score pondéré : il gagne.
 ### 5.1 Pourquoi un clone avec 10x le budget perd dans 18 mois
 
 **Raison 1 — La topographie est l'actif**
-La topographie des Seeds (les associations historiques entre Seeds et Résultats) est un actif non-transférable. Elle s'accumule uniquement à travers des parties réelles. Un clone commence avec un terrain vierge — les joueurs expérimentés de DRIFT ont des années d'intuition calibrée que ce clone ne peut pas offrir.
+La topographie des Seeds (les associations historiques entre Seeds et Résultats) est un actif non-transférable. Elle s'accumule uniquement à travers des parties réelles. Un clone commence avec un terrain vierge — les joueurs expérimentés de VOLTA ont des années d'intuition calibrée que ce clone ne peut pas offrir.
 
 **Raison 2 — Les profils comportementaux sont on-chain**
 Chaque joueur a un historique on-chain : ses Prophéties passées, ses Volontés passées, ses écarts, ses patterns de lock timing, ses scores par catégorie de Seed. Ces profils sont des actifs identitaires que les joueurs ne peuvent pas "migrer" vers un clone. Reconstruire sa réputation prendrait des mois.
 
 **Raison 3 — L'effet réseau est mécanique**
-DRIFT est structurellement meilleur avec plus de joueurs :
+VOLTA est structurellement meilleur avec plus de joueurs :
 - Plus de joueurs = distribution plus riche des Prophéties = plus de signal
 - Plus de joueurs = meilleure couverture des zones = plus de compétition pour l'Unicité
 - Plus de joueurs = la topographie se construit plus vite et devient plus précise
-Un clone avec 1000 joueurs est un jeu fondamentalement différent (et inférieur) à DRIFT avec 100,000 joueurs.
+Un clone avec 1000 joueurs est un jeu fondamentalement différent (et inférieur) à VOLTA avec 100,000 joueurs.
 
 **Raison 4 — La méta est une connaissance communautaire**
-Les stratégies méta (comment jouer contre différents types de joueurs, quelles zones exploiter pour quel Seed) sont des connaissances développées collectivement par la communauté au fil de milliers de parties. Cette connaissance vit dans les forums, les streams, les discussions. Elle appartient à la communauté DRIFT, pas au protocole. Un clone ne peut pas la copier.
+Les stratégies méta (comment jouer contre différents types de joueurs, quelles zones exploiter pour quel Seed) sont des connaissances développées collectivement par la communauté au fil de milliers de parties. Cette connaissance vit dans les forums, les streams, les discussions. Elle appartient à la communauté VOLTA, pas au protocole. Un clone ne peut pas la copier.
 
 **Raison 5 — L'identité des joueurs est incopiable**
 "Ce joueur est un expert des Seeds à haute variance", "ce streamer est connu pour ses Volontés extrêmes" — ces réputations sont construites sur la blockchain et dans la culture du jeu. Ce sont des actifs sociaux non-transférables.
+
+### 5.2 Défenses anti-collusion
+
+1. **Matchmaking aléatoire** : les joueurs ne choisissent PAS leurs adversaires. Assignation rotative en salle ARENA+. Rend la collusion impossible sans contrôle total de la salle.
+
+2. **Anti-sybil** : vérification via Privy (email + téléphone), un seul compte par appareil (device fingerprint). Pour les tiers de mise élevés : Worldcoin/Proof of Humanity optionnel.
+
+3. **Détection algorithmique** : flag automatique si deux joueurs ont des Volontés corrélées à >0.90 sur 20+ parties, ou si un joueur prophétise systématiquement aux extrêmes avec un partenaire systématiquement au centre dans les mêmes salles.
+
+4. **L'Unicité comme dissuasion structurelle** : fonctionne contre la collusion par rapprochement (les collusifs dans la même zone se pénalisent). Ne protège pas contre la collusion par séparation — d'où les points 1-3.
+
+5. **Transparence on-chain** : tous les votes et résultats sont publics sur la blockchain. La communauté peut auditer les patterns suspects.
 
 ---
 
@@ -572,10 +610,27 @@ La Volonté est révélée et vérifiable. Personne ne peut mentir sur sa Volont
 
 ```solidity
 function computeResult(uint8[] memory wills) pure returns (uint8) {
+    // Require minimum 6 players
+    require(wills.length >= 6, "Minimum 6 players required");
     // Trier les volontés
     // Exclure la valeur min et la valeur max (moyenne tronquée)
     // Calculer la moyenne des valeurs restantes
     // Retourner le résultat arrondi
+}
+
+function computeScore(
+    uint8 prophecy, 
+    uint8 result, 
+    uint8 medianProphecy, 
+    uint8 neighborsInWindow, 
+    uint8 totalPlayers
+) pure returns (uint256) {
+    // Précision = 1 - |prophecy - result| / 100
+    // Précision² = Précision * Précision
+    // Hardiesse = 1 + min(|prophecy - medianProphecy|, 35) / 50
+    // W = 3 + totalPlayers / 10
+    // Unicité = 1 - neighborsInWindow / totalPlayers
+    // Score = Précision² × Hardiesse × Unicité
 }
 ```
 
@@ -609,11 +664,11 @@ computeAndDistribute(roomId) → calcul des scores + transferts
 
 ### 7.1 L'argument légal en une phrase
 
-> "DRIFT est une compétition de prédiction comportementale basée sur la compétence, dans laquelle les joueurs prédisent l'agrégat des décisions humaines de leurs adversaires — une compétence mesurable, améliorable, et entièrement distincte du hasard."
+> "VOLTA est une compétition de prédiction comportementale basée sur la compétence, dans laquelle les joueurs prédisent l'agrégat des décisions humaines de leurs adversaires — une compétence mesurable, améliorable, et entièrement distincte du hasard."
 
 ### 7.2 Comparaison avec les précédents légaux
 
-| Précédent | Légalité | Analogie avec DRIFT |
+| Précédent | Légalité | Analogie avec VOLTA |
 |---|---|---|
 | Poker en compétition | ✅ Legal dans ~80 pays | Compétence, lecture des adversaires, information cachée |
 | Esports tournaments | ✅ Legal partout | Compétition skill-based avec entry fee et prize pool |
@@ -669,27 +724,41 @@ Les joueurs peuvent proposer des Seeds via une gouvernance on-chain légère. Le
 
 ### 9.1 Le jeu en 30 mots
 
-> Un Seed apparaît. Tu prophétises publiquement un nombre. Tu votes secrètement un autre. Celui dont la Prophétie prédit le mieux la moyenne secrète des autres gagne 55% du pool.
+> Un Seed apparaît. Tu prophétises publiquement un nombre. Tu votes secrètement un autre. Le joueur le plus audacieux qui prédit le mieux la moyenne secrète des autres gagne le pool.
 
-### 9.2 Les 5 raisons pour lesquelles DRIFT est le bon mécanisme
+### 9.2 Les 5 raisons pour lesquelles VOLTA est le bon mécanisme
 
 1. **Légalement inattaquable** — Zéro hasard, 100% décisions humaines, compétence démontrable
 2. **Jamais résolvable** — La récursivité infinie empêche toute stratégie dominante stable
-3. **Spectaculaire** — Le Reveal seconde par seconde est du contenu pur
+3. **Spectaculaire** — Le Reveal ordonné par écart croissant est un crescendo dramatique garanti
 4. **Moat structurel** — La topographie et les profils on-chain sont des actifs non-copiables
-5. **Addictif par mécanique** — Le "j'aurais dû" post-défaite est le déclencheur de rejoue le plus puissant
+5. **Addictif par mécanique** — Le bouton "Et si..." et le near-miss interactif déclenchent la rejoue
 
-### 9.3 Ce qui reste à définir
+### 9.3 Changements clés de la V2 par rapport à la V1
 
-Les éléments suivants sont délibérément laissés ouverts pour l'analyse et l'amélioration :
-- Le nom final du jeu
-- L'identité visuelle et l'univers
-- La formule exacte de scoring (les coefficients peuvent être ajustés)
-- Le seuil exact du mécanisme de Jackpot
-- La liste initiale des Seeds
-- Les éventuelles mécaniques additionnelles (power-ups, modes spéciaux, tournois)
-- Les potentielles améliorations fondamentales du mécanisme lui-même
+| Élément | V1 | V2 | Raison |
+|---|---|---|---|
+| Formule | Précision × Hardiesse × Unicité | **Précision² × Hardiesse × Unicité** | Résultat plus intuitif (le plus proche gagne généralement) |
+| Hardiesse | 1 + \|P-Med\|/50 (max ~3x) | 1 + min(\|P-Med\|,35)/50 **(max 1.70)** | Empêche la stratégie "extrêmes systématiques" |
+| Unicité fenêtre | ±5 fixe | **±(3 + floor(N/10))** | Adaptation à la taille de salle |
+| Min joueurs | 3 | **6** | Moyenne tronquée cassée en dessous |
+| Phase 0 | 15s | **10s** | Réduire le temps mort |
+| Phase 2 | 20s | **15s** + skip si tous soumis | Réduire le temps mort |
+| Phase 3 | 15s, ordre aléatoire | **12-18s dynamique, écart croissant** | Crescendo dramatique garanti |
+| Phase 4 | Feedback statique | **Bouton "Et si..."** interactif | Maximiser le near-miss |
+| Jackpot | Seuil 0.50, terme "Jackpot" | **Seuil 0.85/1.20, "Bonus d'Audace"** | Calibrage + risque légal |
+| Nom | DRIFT (provisoire) | **VOLTA** | Renversement poétique, jamais utilisé |
+| Durée totale | ~85s | **~62-68s** | Bien dans la contrainte 90s |
+
+### 9.4 Ce qui reste à définir
+
+- L'identité visuelle détaillée et l'implémentation frontend
+- La liste initiale complète des 50 Seeds
+- Les éventuelles mécaniques additionnelles (modes spéciaux, tournois, saisons)
+- Le smart contract audité sur Base/Arbitrum
+- Le système anti-sybil et matchmaking aléatoire
+- Le mode spectateur gratuit
 
 ---
 
-*Ce document représente la version 1.0 du mécanisme DRIFT. Il est soumis à analyse critique et amélioration.*
+*Ce document représente la version 2.0 du mécanisme VOLTA (ex-DRIFT), intégrant les corrections issues de l'analyse critique.*
