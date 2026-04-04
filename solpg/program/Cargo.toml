@@ -1,9 +1,10 @@
 [package]
-name = "faultline-program"
+name = "faultline_program"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
+name = "faultline_program"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
