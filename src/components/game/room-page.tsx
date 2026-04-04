@@ -73,7 +73,7 @@ export function RoomPage({ roomAddress }: { roomAddress: string }) {
             <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Room Detail</p>
             <h1 className="mt-3 font-display text-4xl text-white">Faultline room {shortKey(room.publicKey, 6)}</h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">
-              Room permissionless sur Solana devnet. Toute action critique de progression reste ouverte a n’importe quel utilisateur eligible.
+              Room systeme sur Solana devnet. La progression est prise en charge automatiquement par le relayer des que des visiteurs sont presents dans l'app.
             </p>
           </div>
           <PhaseBadge status={room.status} />

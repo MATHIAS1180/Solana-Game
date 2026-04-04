@@ -1,9 +1,12 @@
 import "server-only";
 
+import { createHash } from "crypto";
+
 import { PublicKey, Transaction } from "@solana/web3.js";
 
-import { PLAYER_STATUS, ROOM_STATUS } from "@/lib/faultline/constants";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, PLAYER_STATUS, ROOM_STATUS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
 import {
+  createInitRoomIx,
   createCancelExpiredRoomIx,
   createClaimRewardIx,
   createCloseRoomIx,
@@ -12,7 +15,7 @@ import {
   createRevealDecisionIx
 } from "@/lib/faultline/instructions";
 import { deriveProfilePda } from "@/lib/faultline/pdas";
-import { deleteAutomationCommitPayload, getAutomationCommitPayload } from "@/lib/faultline/automation-store";
+import { claimAutomationHeartbeatLock, deleteAutomationCommitPayload, getAutomationCommitPayload } from "@/lib/faultline/automation-store";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getRelayerPublicKey, getServerConnection, getServerProgramId, sendRelayerTransaction } from "@/lib/solana/server";
@@ -22,6 +25,10 @@ type AutomationSummary = {
   transactionCount: number;
   actions: string[];
   errors: string[];
+};
+
+type AutomationHeartbeatSummary = AutomationSummary & {
+  triggered: boolean;
 };
 
 function isSettledRoom(room: FaultlineRoomAccount) {
@@ -53,11 +60,63 @@ function maxActionsPerRun() {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
 }
 
+function buildSystemRoomSeed(presetId: number, slot: number) {
+  return createHash("sha256").update(`faultline-system-room:${presetId}:${slot}`).digest().subarray(0, 32);
+}
+
+function hasOpenSystemRoom(rooms: FaultlineRoomAccount[], presetId: number) {
+  return rooms.some((room) => room.status === ROOM_STATUS.Open && room.presetId === presetId && matchesDefaultRoomPreset(room));
+}
+
+async function ensureSystemRooms(args: {
+  connection: ReturnType<typeof getServerConnection>;
+  programId: PublicKey;
+  relayer: PublicKey;
+  rooms: FaultlineRoomAccount[];
+  summary: AutomationSummary;
+  maxActions: number;
+}) {
+  const { connection, programId, relayer, rooms, summary, maxActions } = args;
+  const slot = await connection.getSlot("confirmed");
+
+  for (const preset of DEFAULT_ROOM_PRESETS) {
+    if (summary.transactionCount >= maxActions || hasOpenSystemRoom(rooms, preset.id)) {
+      continue;
+    }
+
+    const roomSeed = buildSystemRoomSeed(preset.id, slot);
+    const transaction = new Transaction().add(
+      await createInitRoomIx({
+        programId,
+        creator: relayer,
+        roomSeed,
+        stakeLamports: preset.stakeLamports,
+        minPlayers: preset.minPlayers,
+        maxPlayers: preset.maxPlayers,
+        joinWindowSlots: preset.joinWindowSlots,
+        commitWindowSlots: preset.commitWindowSlots,
+        revealWindowSlots: preset.revealWindowSlots,
+        presetId: preset.id
+      })
+    );
+
+    try {
+      const signature = await sendRelayerTransaction(transaction);
+      summary.transactionCount += 1;
+      summary.actions.push(`create-system-room:${preset.id}:${signature}`);
+      const nextRooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
+      rooms.splice(0, rooms.length, ...nextRooms);
+    } catch (error) {
+      summary.errors.push(`create-system-room:${preset.id}:${error instanceof Error ? error.message : "Erreur inconnue"}`);
+    }
+  }
+}
+
 export async function runAutomationTick(): Promise<AutomationSummary> {
   const connection = getServerConnection();
   const programId = getServerProgramId();
   const relayer = getRelayerPublicKey();
-  const rooms = await fetchRooms(connection, programId);
+  const rooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
   const summary: AutomationSummary = {
     processedRooms: rooms.length,
     transactionCount: 0,
@@ -65,6 +124,9 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
     errors: []
   };
   const maxActions = maxActionsPerRun();
+
+  await ensureSystemRooms({ connection, programId, relayer, rooms, summary, maxActions });
+  summary.processedRooms = rooms.length;
 
   async function refresh(roomKey: PublicKey) {
     return fetchRoom(connection, roomKey);
@@ -212,4 +274,25 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
   }
 
   return summary;
+}
+
+export async function runAutomationHeartbeat(): Promise<AutomationHeartbeatSummary> {
+  const interval = Number(process.env.FAULTLINE_AUTOMATION_HEARTBEAT_INTERVAL_MS || AUTOMATION_HEARTBEAT_INTERVAL_MS);
+  const lockClaimed = await claimAutomationHeartbeatLock(interval);
+
+  if (!lockClaimed) {
+    return {
+      triggered: false,
+      processedRooms: 0,
+      transactionCount: 0,
+      actions: [],
+      errors: []
+    };
+  }
+
+  const summary = await runAutomationTick();
+  return {
+    triggered: true,
+    ...summary
+  };
 }

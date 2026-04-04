@@ -8,6 +8,7 @@ import { RefreshCw } from "lucide-react";
 import { ProgramBanner } from "@/components/game/program-banner";
 import { CreateRoomForm } from "@/components/rooms/create-room-form";
 import { RoomCard } from "@/components/rooms/room-card";
+import { matchesDefaultRoomPreset } from "@/lib/faultline/constants";
 import { fetchRooms } from "@/lib/faultline/rooms";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
@@ -32,7 +33,7 @@ export function RoomsPage() {
       setError(null);
       const [nextRooms, slot] = await Promise.all([fetchRooms(connection, programId), connection.getSlot("confirmed")]);
       setCurrentSlot(slot);
-      setRooms(nextRooms.sort((left, right) => Number(right.createdSlot - left.createdSlot)));
+      setRooms(nextRooms.filter((room) => matchesDefaultRoomPreset(room)).sort((left, right) => Number(left.stakeLamports - right.stakeLamports)));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Chargement des rooms echoue.");
     } finally {
@@ -42,6 +43,11 @@ export function RoomsPage() {
 
   useEffect(() => {
     void refreshRooms();
+    const interval = window.setInterval(() => {
+      void refreshRooms();
+    }, 15_000);
+
+    return () => window.clearInterval(interval);
   }, [connection, programId]);
 
   return (
@@ -78,7 +84,7 @@ export function RoomsPage() {
               rooms.map((room) => <RoomCard key={room.publicKey.toBase58()} room={room} currentSlot={currentSlot} />)
             ) : (
               <div className="fault-card rounded-[1.75rem] p-8 text-sm leading-7 text-white/70">
-                Aucune room lisible pour ce Program ID. Deploie d’abord le programme SolPG, renseigne le Program ID, puis cree une room.
+                Aucune room systeme n'est encore visible. Le relayer doit etre configure pour ouvrir automatiquement les rooms de base.
               </div>
             )}
           </div>

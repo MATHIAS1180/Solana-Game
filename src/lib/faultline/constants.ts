@@ -44,46 +44,113 @@ export const RESERVE_STATE_SIZE = 76;
 export const DEFAULT_ROOM_PRESETS = [
   {
     id: 0,
-    name: "Duel",
-    description: "Lecture frontale a 2 joueurs.",
+    name: "0.01 SOL",
+    description: "Room systeme d'entree.",
     minPlayers: 2,
-    maxPlayers: 2,
-    stakeLamports: 25_000_000,
-    joinWindowSlots: 150,
-    commitWindowSlots: 120,
-    revealWindowSlots: 120
+    maxPlayers: 12,
+    stakeLamports: 10_000_000,
+    joinWindowSlots: 220,
+    commitWindowSlots: 160,
+    revealWindowSlots: 160
   },
   {
     id: 1,
-    name: "Pulse",
-    description: "Format grand public, meta lisible.",
-    minPlayers: 5,
+    name: "0.02 SOL",
+    description: "Room systeme basse friction.",
+    minPlayers: 2,
     maxPlayers: 12,
-    stakeLamports: 50_000_000,
+    stakeLamports: 20_000_000,
     joinWindowSlots: 220,
     commitWindowSlots: 160,
     revealWindowSlots: 160
   },
   {
     id: 2,
-    name: "Swarm",
-    description: "Room dense pour streamer et spectateurs.",
-    minPlayers: 12,
-    maxPlayers: 32,
-    stakeLamports: 75_000_000,
-    joinWindowSlots: 300,
-    commitWindowSlots: 180,
-    revealWindowSlots: 180
+    name: "0.04 SOL",
+    description: "Room systeme intermediaire.",
+    minPlayers: 2,
+    maxPlayers: 12,
+    stakeLamports: 40_000_000,
+    joinWindowSlots: 220,
+    commitWindowSlots: 160,
+    revealWindowSlots: 160
   },
   {
     id: 3,
-    name: "Faultline Max",
-    description: "Haute densite, haut jackpot, haute lecture de foule.",
-    minPlayers: 25,
-    maxPlayers: 128,
-    stakeLamports: 100_000_000,
-    joinWindowSlots: 500,
-    commitWindowSlots: 220,
-    revealWindowSlots: 220
+    name: "0.08 SOL",
+    description: "Room systeme medium.",
+    minPlayers: 2,
+    maxPlayers: 12,
+    stakeLamports: 80_000_000,
+    joinWindowSlots: 220,
+    commitWindowSlots: 160,
+    revealWindowSlots: 160
+  },
+  {
+    id: 4,
+    name: "0.16 SOL",
+    description: "Room systeme a enjeu releve.",
+    minPlayers: 2,
+    maxPlayers: 12,
+    stakeLamports: 160_000_000,
+    joinWindowSlots: 220,
+    commitWindowSlots: 160,
+    revealWindowSlots: 160
+  },
+  {
+    id: 5,
+    name: "0.32 SOL",
+    description: "Room systeme haute mise.",
+    minPlayers: 2,
+    maxPlayers: 12,
+    stakeLamports: 320_000_000,
+    joinWindowSlots: 220,
+    commitWindowSlots: 160,
+    revealWindowSlots: 160
+  },
+  {
+    id: 6,
+    name: "0.64 SOL",
+    description: "Room systeme premium.",
+    minPlayers: 2,
+    maxPlayers: 12,
+    stakeLamports: 640_000_000,
+    joinWindowSlots: 220,
+    commitWindowSlots: 160,
+    revealWindowSlots: 160
+  },
+  {
+    id: 7,
+    name: "1 SOL",
+    description: "Room systeme plafond actuel.",
+    minPlayers: 2,
+    maxPlayers: 12,
+    stakeLamports: 1_000_000_000,
+    joinWindowSlots: 260,
+    commitWindowSlots: 180,
+    revealWindowSlots: 180
   }
 ] as const;
+
+export const AUTOMATION_HEARTBEAT_INTERVAL_MS = 15_000;
+
+export function findDefaultRoomPreset(presetId: number) {
+  return DEFAULT_ROOM_PRESETS.find((preset) => preset.id === presetId) ?? null;
+}
+
+export function matchesDefaultRoomPreset(room: {
+  presetId: number;
+  stakeLamports: bigint | number;
+  minPlayers: number;
+  maxPlayers: number;
+}) {
+  const roomStake = BigInt(room.stakeLamports);
+
+  return DEFAULT_ROOM_PRESETS.some(
+    (preset) =>
+      preset.id === room.presetId &&
+      BigInt(preset.stakeLamports) === roomStake &&
+      preset.minPlayers === room.minPlayers &&
+      preset.maxPlayers === room.maxPlayers
+  );
+}

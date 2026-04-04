@@ -15,11 +15,19 @@ function parseRelayerSecretKey(value: string) {
   }
 
   const secretBytes = trimmed.startsWith("[") ? Uint8Array.from(JSON.parse(trimmed) as number[]) : bs58.decode(trimmed);
-  if (secretBytes.length !== 64) {
-    throw new Error("FAULTLINE_RELAYER_SECRET_KEY doit contenir 64 bytes (JSON array ou base58). ");
+  if (secretBytes.length === 64) {
+    return secretBytes;
   }
 
-  return secretBytes;
+  if (secretBytes.length === 32) {
+    return Keypair.fromSeed(secretBytes).secretKey;
+  }
+
+  throw new Error("FAULTLINE_RELAYER_SECRET_KEY doit contenir 32 ou 64 bytes (JSON array ou base58).");
+}
+
+export function getRelayerPublicKeyFromSecret(value: string) {
+  return Keypair.fromSecretKey(parseRelayerSecretKey(value)).publicKey;
 }
 
 export function getServerConnection() {

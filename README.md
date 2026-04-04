@@ -13,8 +13,7 @@ Faultline est un jeu PvP web3 sur Solana devnet base sur un commit-reveal determ
 
 ## MVP inclus
 
-- landing page et listing des rooms
-- creation de room via presets
+- landing page et listing des rooms systeme
 - join + commit en une transaction
 - submit commit avec hash SHA256 canonique
 - stockage local et serveur du payload de reveal
@@ -45,11 +44,12 @@ Copier .env.example vers .env.local et renseigner au minimum:
 
 Pour l'automatisation Vercel, ajouter aussi:
 
-- FAULTLINE_RELAYER_SECRET_KEY=<SECRET_KEY_BASE58_OU_TABLEAU_JSON>
+- FAULTLINE_RELAYER_SECRET_KEY=<SECRET_KEY_BASE58_32_OU_64_BYTES_OU_TABLEAU_JSON>
 - UPSTASH_REDIS_REST_URL=<URL_UPSTASH>
 - UPSTASH_REDIS_REST_TOKEN=<TOKEN_UPSTASH>
 - CRON_SECRET=<SECRET_CRON_VERCEL>
 - FAULTLINE_AUTOMATION_MAX_ACTIONS=25
+- FAULTLINE_AUTOMATION_HEARTBEAT_INTERVAL_MS=15000
 
 ## Lancer l'application localement
 
@@ -66,11 +66,13 @@ Pour l'automatisation Vercel, ajouter aussi:
 ## Automatisation Vercel
 
 - le smart contract ne s'auto-execute pas tout seul sur Solana
-- le depot expose une route /api/automation/tick pour un relayer Vercel
+- le depot expose une route protegee /api/automation/tick pour cron/admin et une route publique /api/automation/heartbeat declenchee automatiquement par l'app
 - sur Vercel Hobby, vercel.json ne peut planifier qu'un cron quotidien
-- pour un tick frequemment automatique, il faut Vercel Pro ou un scheduler externe
+- le heartbeat navigateur evite les appels manuels tant qu'au moins un visiteur a l'app ouverte
 - le relayer peut faire reveal, timeout, resolve, claim et close avec un wallet serveur
 - les payloads de reveal sont synchronises dans Redis Upstash via /api/automation/commit
+- les rooms de base 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64 et 1 SOL sont recreees automatiquement par le relayer
+- le programme Rust du depot verrouille aussi InitRoom sur l'autorite du reserve apres upgrade ou redeploiement du programme
 
 ## Programme on-chain
 

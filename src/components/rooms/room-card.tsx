@@ -2,10 +2,12 @@ import Link from "next/link";
 import { ArrowRight, Users } from "lucide-react";
 
 import { PhaseBadge } from "@/components/game/phase-badge";
+import { findDefaultRoomPreset } from "@/lib/faultline/constants";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { formatCountdown, formatLamports, shortKey } from "@/lib/utils";
 
 export function RoomCard({ room, currentSlot }: { room: FaultlineRoomAccount; currentSlot: number }) {
+  const preset = findDefaultRoomPreset(room.presetId);
   const joinRemaining = Number(room.joinDeadlineSlot) - currentSlot;
   const commitRemaining = Number(room.commitDeadlineSlot) - currentSlot;
   const revealRemaining = Number(room.revealDeadlineSlot) - currentSlot;
@@ -18,7 +20,8 @@ export function RoomCard({ room, currentSlot }: { room: FaultlineRoomAccount; cu
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">{shortKey(room.publicKey, 6)}</p>
-          <h3 className="mt-3 font-display text-2xl text-white">{room.minPlayers}-{room.maxPlayers} joueurs</h3>
+          <h3 className="mt-3 font-display text-2xl text-white">{preset?.name || formatLamports(room.stakeLamports)}</h3>
+          <p className="mt-2 text-sm text-white/62">{room.minPlayers}-{room.maxPlayers} joueurs</p>
         </div>
         <PhaseBadge status={room.status} />
       </div>
