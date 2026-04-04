@@ -84,7 +84,8 @@ Configurer les variables suivantes dans le projet Vercel:
 - Renseigner les variables UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN.
 - Renseigner FAULTLINE_RELAYER_SECRET_KEY avec la cle privee du wallet serveur.
 - Configurer CRON_SECRET dans Vercel pour proteger /api/automation/tick.
-- Le fichier vercel.json declenche ensuite le tick automatiquement chaque minute.
+- Sur un plan Hobby, Vercel n'autorise qu'un cron quotidien.
+- Pour un tick frequemment automatique, il faut passer en Pro ou utiliser un scheduler externe qui appelle /api/automation/tick.
 
 ### Build
 

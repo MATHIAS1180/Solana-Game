@@ -67,7 +67,8 @@ Pour l'automatisation Vercel, ajouter aussi:
 
 - le smart contract ne s'auto-execute pas tout seul sur Solana
 - le depot expose une route /api/automation/tick pour un relayer Vercel
-- vercel.json programme cette route chaque minute
+- sur Vercel Hobby, vercel.json ne peut planifier qu'un cron quotidien
+- pour un tick frequemment automatique, il faut Vercel Pro ou un scheduler externe
 - le relayer peut faire reveal, timeout, resolve, claim et close avec un wallet serveur
 - les payloads de reveal sont synchronises dans Redis Upstash via /api/automation/commit
 
