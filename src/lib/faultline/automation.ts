@@ -1,12 +1,9 @@
 import "server-only";
 
-import { createHash } from "crypto";
-
 import { PublicKey, Transaction } from "@solana/web3.js";
 
-import { AUTOMATION_HEARTBEAT_INTERVAL_MS, PLAYER_STATUS, ROOM_STATE_SIZE, ROOM_STATUS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS, PLAYER_STATUS, ROOM_STATUS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
 import {
-  createInitRoomIx,
   createCancelExpiredRoomIx,
   createClaimRewardIx,
   createCloseRoomIx,
@@ -15,7 +12,6 @@ import {
   createRevealDecisionIx
 } from "@/lib/faultline/instructions";
 import { deriveProfilePda } from "@/lib/faultline/pdas";
-import { findJoinableSystemRoom, findSystemPresetById } from "@/lib/faultline/system-rooms";
 import { claimAutomationHeartbeatLock, deleteAutomationCommitPayload, getAutomationCommitPayload } from "@/lib/faultline/automation-store";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
@@ -59,81 +55,6 @@ function hasPendingClaims(room: FaultlineRoomAccount) {
 function maxActionsPerRun() {
   const parsed = Number(process.env.FAULTLINE_AUTOMATION_MAX_ACTIONS || "25");
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
-}
-
-function buildSystemRoomSeed(presetId: number, slot: number) {
-  return createHash("sha256").update(`faultline-system-room:${presetId}:${slot}`).digest().subarray(0, 32);
-}
-
-async function assertRelayerCanCreateRoom(connection: ReturnType<typeof getServerConnection>, relayer: PublicKey) {
-  const [roomRent, vaultRent, relayerBalance] = await Promise.all([
-    connection.getMinimumBalanceForRentExemption(ROOM_STATE_SIZE),
-    connection.getMinimumBalanceForRentExemption(0),
-    connection.getBalance(relayer, "confirmed")
-  ]);
-  const minimumRequiredLamports = roomRent + vaultRent + 10_000;
-
-  if (relayerBalance < minimumRequiredLamports) {
-    throw new Error(
-      `Le relayer n'a pas assez de SOL pour ouvrir une room. Solde actuel ${relayerBalance} lamports, minimum requis ${minimumRequiredLamports} lamports.`
-    );
-  }
-}
-
-export async function ensureSystemRoomForPreset(presetId: number) {
-  const preset = findSystemPresetById(presetId);
-  if (!preset) {
-    throw new Error("Preset de room inconnu.");
-  }
-
-  const connection = getServerConnection();
-  const programId = getServerProgramId();
-  const relayer = getRelayerPublicKey();
-  const slot = await connection.getSlot("confirmed");
-  const rooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
-  const existingRoom = findJoinableSystemRoom(rooms, preset.id, slot);
-  if (existingRoom) {
-    return existingRoom;
-  }
-
-  const roomSeed = buildSystemRoomSeed(preset.id, slot);
-  await assertRelayerCanCreateRoom(connection, relayer);
-  const transaction = new Transaction().add(
-    await createInitRoomIx({
-      programId,
-      creator: relayer,
-      roomSeed,
-      stakeLamports: preset.stakeLamports,
-      minPlayers: preset.minPlayers,
-      maxPlayers: preset.maxPlayers,
-      joinWindowSlots: preset.joinWindowSlots,
-      commitWindowSlots: preset.commitWindowSlots,
-      revealWindowSlots: preset.revealWindowSlots,
-      presetId: preset.id
-    })
-  );
-
-  try {
-    await sendRelayerTransaction(transaction);
-  } catch (error) {
-    const retrySlot = await connection.getSlot("confirmed");
-    const retryRooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
-    const retryRoom = findJoinableSystemRoom(retryRooms, preset.id, retrySlot);
-    if (retryRoom) {
-      return retryRoom;
-    }
-
-    throw new Error(error instanceof Error ? error.message : "Impossible de preparer une room joignable pour ce preset.");
-  }
-
-  const refreshedSlot = await connection.getSlot("confirmed");
-  const refreshedRooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
-  const createdRoom = findJoinableSystemRoom(refreshedRooms, preset.id, refreshedSlot);
-  if (!createdRoom) {
-    throw new Error("La room a ete initialisee mais reste introuvable apres creation.");
-  }
-
-  return createdRoom;
 }
 
 export async function runAutomationTick(): Promise<AutomationSummary> {

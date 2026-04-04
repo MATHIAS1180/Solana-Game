@@ -389,10 +389,7 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
         store_state(&reserve, reserve_ai)?;
     } else {
         verify_reserve(program_id, reserve_ai)?;
-        let reserve: ReserveState = load_state(reserve_ai)?;
-        if reserve.authority != creator.key.to_bytes() {
-            return Err(FaultlineError::InvalidAuthority.into());
-        }
+        let _reserve: ReserveState = load_state(reserve_ai)?;
     }
 
     let slot = Clock::get()?.slot;
@@ -911,7 +908,6 @@ fn require_system_program(account: &AccountInfo) -> ProgramResult {
     }
     Ok(())
 }
-
 #[inline(never)]
 fn create_pda_account<'a>(
     payer: &AccountInfo<'a>,

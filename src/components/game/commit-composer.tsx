@@ -17,27 +17,6 @@ import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { sendAndConfirm } from "@/lib/solana/transactions";
 import { shortKey } from "@/lib/utils";
 
-async function syncAutomationPayload(payload: {
-  room: string;
-  player: string;
-  zone: Zone;
-  riskBand: RiskBand;
-  forecast: Forecast;
-  nonce: number[];
-  commitHash: number[];
-  createdAt: number;
-}) {
-  const response = await fetch("/api/automation/commit", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  return response.ok;
-}
-
 function getDefaultForecast(room: FaultlineRoomAccount): Forecast {
   const base = Math.floor(room.minPlayers / 5);
   const histogram: Forecast = [base, base, base, base, base];
@@ -150,9 +129,8 @@ export function CommitComposer({
       transaction.add(instruction);
 
       await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
-      const syncedToAutomation = await syncAutomationPayload(storedPayload).catch(() => false);
       setMessage(
-        `${latestPlayerIndex === -1 ? "Join + commit confirmes" : "Commit verrouille"} pour ${shortKey(latestRoom.publicKey)}. ${syncedToAutomation ? "Le relayer pourra reveal automatiquement." : "Le payload est garde localement, sans sync serveur."}`
+        `${latestPlayerIndex === -1 ? "Join + commit confirmes" : "Commit verrouille"} pour ${shortKey(latestRoom.publicKey)}. Le payload est garde localement pour le reveal manuel.`
       );
       await onCommitted();
     } catch (error) {

@@ -17,7 +17,7 @@ Ce document couvre le chemin prevu par le projet: deploiement du programme via S
 4. Deployer sur Solana devnet.
 5. Recuperer le Program ID retourne par SolPG.
 6. Verifier que la constante TREASURY_PUBKEY dans solpg/program/src/lib.rs correspond bien a la treasury de production.
-7. Redeployer ou upgrader le programme si tu veux activer le nouveau verrouillage on-chain de InitRoom sur l'autorite du reserve.
+7. Redeployer ou upgrader le programme si tu veux activer la version permissionless de InitRoom pour que chaque wallet puisse creer une room.
 
 ### Comptes derives par seeds
 
@@ -58,7 +58,7 @@ Ce document couvre le chemin prevu par le projet: deploiement du programme via S
 
 Chaque room systeme est configuree en 2 a 12 joueurs. Les presets publics sont definis dans src/lib/faultline/constants.ts.
 
-Le programme du depot empeche aussi la creation de nouvelles rooms par une autre autorite que celle enregistree dans le reserve. Ce verrouillage ne devient effectif qu'apres upgrade ou redeploiement du programme SolPG.
+Le programme du depot autorise desormais la creation de nouvelles rooms par n'importe quel wallet. Il faut redeployer ce programme SolPG pour beneficier de ce mode simple.
 
 ## 2. Configurer le frontend local
 
@@ -70,16 +70,19 @@ Le programme du depot empeche aussi la creation de nouvelles rooms par une autre
 
 ## 3. Deployer sur Vercel
 
-### Variables d'environnement Vercel
+### Variables d'environnement Vercel minimales
 
 Configurer les variables suivantes dans le projet Vercel:
 
 - NEXT_PUBLIC_SOLANA_NETWORK=devnet
 - NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
-- FAULTLINE_SERVER_RPC_URL=<URL_HTTPS_RPC_DEVNET_DEDIEE_POUR_LE_BACKEND>
 - NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=7rMMERfdSFC3PJXMUytdoUGCikKLiqS7ha9ZE3KFx3Ns
 - NEXT_PUBLIC_SOLANA_EXPLORER_BASE_URL=https://explorer.solana.com
 - NEXT_PUBLIC_ENABLE_EMERGENCY_ACTIONS=false
+
+### Variables optionnelles pour un backend d'automatisation
+
+- FAULTLINE_SERVER_RPC_URL=<URL_HTTPS_RPC_DEVNET_DEDIEE_POUR_LE_BACKEND>
 - FAULTLINE_RELAYER_SECRET_KEY=<SECRET_KEY_BASE58_32_OU_64_BYTES_OU_JSON>
 - UPSTASH_REDIS_REST_URL=<URL_UPSTASH>
 - UPSTASH_REDIS_REST_TOKEN=<TOKEN_UPSTASH>
@@ -97,6 +100,8 @@ Notes:
 
 ### Relayer automatique
 
+Cette section est optionnelle. Le mode simple du projet n'en a pas besoin.
+
 - Ajouter une integration Redis Upstash depuis le Marketplace Vercel.
 - Renseigner les variables UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN, ou laisser les variables KV_REST_API_URL et KV_REST_API_TOKEN si Vercel Storage les injecte deja.
 - Renseigner FAULTLINE_RELAYER_SECRET_KEY avec la cle privee du wallet serveur.
@@ -104,7 +109,7 @@ Notes:
 - Configurer CRON_SECRET dans Vercel pour proteger /api/automation/tick.
 - Sur un plan Hobby, Vercel n'autorise qu'un cron quotidien.
 - L'app declenche aussi automatiquement /api/automation/heartbeat en arriere-plan des qu'un visiteur garde un onglet ouvert.
-- Le relayer n'ouvre plus les rooms en boucle: une room systeme est creee on-demand quand un joueur entre sur un preset, puis le relayer se contente de faire avancer la partie.
+- Le relayer ne sert plus qu'a automatiser certaines actions de phase si tu choisis de le conserver.
 
 ### Build
 
@@ -116,12 +121,12 @@ Notes:
 
 1. Le bandeau du site affiche devnet et le bon Program ID.
 2. La page Rooms charge sans erreur RPC.
-3. Les presets systeme sont visibles en permanence sur la page Rooms.
-4. Un clic sur un preset ouvre bien une vraie room on-chain.
+3. Les presets de mise sont visibles sur la page Rooms.
+4. Un clic sur un preset cree bien une vraie room on-chain et reserve la premiere place du joueur.
 5. Le commit cree bien une entree locale IndexedDB et la transaction passe.
 6. Le flux Join + Commit peut se faire en une seule transaction depuis une room ouverte.
-7. Le commit synchronise bien le payload reveal vers le backend Redis.
-8. Le relayer Vercel fait automatiquement reveal, timeout, resolve, claim et close.
+7. Le reveal manuel fonctionne tant que le payload commit est bien stocke localement.
+8. Les actions permissionless timeout, resolve, claim et close restent disponibles dans l'interface.
 9. Resolve route les 2 pourcents de frais vers la treasury configuree.
 10. Claim et CloseRoom vident correctement les rewards restants.
 

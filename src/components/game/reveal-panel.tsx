@@ -14,16 +14,6 @@ import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { sendAndConfirm } from "@/lib/solana/transactions";
 
-async function deleteAutomationPayload(room: string, player: string) {
-  await fetch("/api/automation/commit", {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ room, player })
-  });
-}
-
 export function RevealPanel({
   room,
   onRevealed
@@ -75,7 +65,6 @@ export function RevealPanel({
 
       await sendAndConfirm(connection, sendTransaction, publicKey, new Transaction().add(instruction));
       await deleteStoredCommitPayload(room.publicKey.toBase58(), publicKey.toBase58());
-      await deleteAutomationPayload(room.publicKey.toBase58(), publicKey.toBase58()).catch(() => undefined);
       setMessage("Reveal transmis et verifie contre le commit stocke.");
       await onRevealed();
     } catch (error) {
@@ -93,7 +82,7 @@ export function RevealPanel({
           Reveal indisponible
         </div>
         <p className="mt-4 text-sm leading-7 text-white/70">
-          Le payload committe n’a pas ete retrouve localement pour ce wallet et cette room. Sans le nonce et le forecast originel, le reveal manuel est impossible. Si le commit a ete synchronise au backend, le relayer Vercel peut encore faire ce reveal automatiquement.
+          Le payload committe n’a pas ete retrouve localement pour ce wallet et cette room. Sans le nonce et le forecast originel, le reveal manuel est impossible.
         </p>
       </div>
     );

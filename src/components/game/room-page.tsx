@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Clock3, Users } from "lucide-react";
 
-import { AutomationHeartbeat } from "@/components/game/automation-heartbeat";
 import { PhaseBadge } from "@/components/game/phase-badge";
 import { ProgramBanner } from "@/components/game/program-banner";
 import { ResultPanel } from "@/components/game/result-panel";
@@ -81,7 +80,6 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
-      <AutomationHeartbeat />
       <ProgramBanner />
 
       <section className="fault-card rounded-[2rem] p-6 sm:p-8">
@@ -90,7 +88,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
             <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Room Detail</p>
             <h1 className="mt-3 font-display text-4xl text-white">Faultline room {shortKey(room.publicKey, 6)}</h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">
-              Room systeme sur Solana devnet. La progression est prise en charge automatiquement par le relayer des que des visiteurs sont presents dans l'app.
+              Room permissionless sur Solana devnet. Le premier joueur l'ouvre depuis son wallet, puis n'importe quel visiteur peut rejoindre et declencher les actions de phase necessaires.
             </p>
           </div>
           <PhaseBadge status={room.status} />

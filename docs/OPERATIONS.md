@@ -59,7 +59,7 @@ Ordre exact:
 
 ## Stockage du reveal
 
-Le frontend enregistre localement et synchronise aussi cote serveur:
+Le frontend enregistre localement:
 
 - room
 - player
@@ -70,7 +70,7 @@ Le frontend enregistre localement et synchronise aussi cote serveur:
 - commitHash
 - createdAt
 
-Sans cet enregistrement, le reveal automatique par relayer est impossible. Sans l'enregistrement local, le reveal manuel est aussi impossible.
+Sans cet enregistrement local, le reveal manuel est impossible.
 
 ## Tests critiques actuellement presents
 
