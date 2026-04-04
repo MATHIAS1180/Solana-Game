@@ -63,7 +63,7 @@ Le programme du depot autorise desormais la creation de nouvelles rooms par n'im
 ## 2. Configurer le frontend local
 
 1. Copier .env.example vers .env.local.
-2. NEXT_PUBLIC_FAULTLINE_PROGRAM_ID doit pointer vers 7rMMERfdSFC3PJXMUytdoUGCikKLiqS7ha9ZE3KFx3Ns.
+2. NEXT_PUBLIC_FAULTLINE_PROGRAM_ID doit pointer vers EZEYdSSjhKez5DufTnjjovs3XBKXK76LAnSKAMZUAdwy.
 3. Verifier NEXT_PUBLIC_SOLANA_RPC_URL.
 4. Installer les dependances avec npm install.
 5. Lancer npm run dev.
@@ -76,7 +76,7 @@ Configurer les variables suivantes dans le projet Vercel:
 
 - NEXT_PUBLIC_SOLANA_NETWORK=devnet
 - NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
-- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=7rMMERfdSFC3PJXMUytdoUGCikKLiqS7ha9ZE3KFx3Ns
+- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=EZEYdSSjhKez5DufTnjjovs3XBKXK76LAnSKAMZUAdwy
 - NEXT_PUBLIC_SOLANA_EXPLORER_BASE_URL=https://explorer.solana.com
 - NEXT_PUBLIC_ENABLE_EMERGENCY_ACTIONS=false
 
