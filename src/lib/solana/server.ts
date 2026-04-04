@@ -1,0 +1,82 @@
+import "server-only";
+
+import bs58 from "bs58";
+import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
+
+import { getFaultlineProgramId, getRpcEndpoint } from "@/lib/solana/cluster";
+
+let sharedConnection: Connection | null = null;
+let sharedRelayer: Keypair | null = null;
+
+function parseRelayerSecretKey(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("FAULTLINE_RELAYER_SECRET_KEY est vide.");
+  }
+
+  const secretBytes = trimmed.startsWith("[") ? Uint8Array.from(JSON.parse(trimmed) as number[]) : bs58.decode(trimmed);
+  if (secretBytes.length !== 64) {
+    throw new Error("FAULTLINE_RELAYER_SECRET_KEY doit contenir 64 bytes (JSON array ou base58). ");
+  }
+
+  return secretBytes;
+}
+
+export function getServerConnection() {
+  if (!sharedConnection) {
+    sharedConnection = new Connection(getRpcEndpoint(), "confirmed");
+  }
+
+  return sharedConnection;
+}
+
+export function getServerProgramId() {
+  const programId = getFaultlineProgramId();
+  if (!programId) {
+    throw new Error("NEXT_PUBLIC_FAULTLINE_PROGRAM_ID est manquant ou invalide.");
+  }
+
+  return programId;
+}
+
+export function getRelayerKeypair() {
+  if (!sharedRelayer) {
+    const rawSecret = process.env.FAULTLINE_RELAYER_SECRET_KEY;
+    if (!rawSecret) {
+      throw new Error("FAULTLINE_RELAYER_SECRET_KEY est requis pour l'automatisation.");
+    }
+    sharedRelayer = Keypair.fromSecretKey(parseRelayerSecretKey(rawSecret));
+  }
+
+  return sharedRelayer;
+}
+
+export async function sendRelayerTransaction(transaction: Transaction) {
+  const connection = getServerConnection();
+  const relayer = getRelayerKeypair();
+  const latestBlockhash = await connection.getLatestBlockhash("confirmed");
+
+  transaction.feePayer = relayer.publicKey;
+  transaction.recentBlockhash = latestBlockhash.blockhash;
+  transaction.sign(relayer);
+
+  const signature = await connection.sendRawTransaction(transaction.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: "confirmed"
+  });
+
+  await connection.confirmTransaction(
+    {
+      signature,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+    },
+    "confirmed"
+  );
+
+  return signature;
+}
+
+export function getRelayerPublicKey(): PublicKey {
+  return getRelayerKeypair().publicKey;
+}
