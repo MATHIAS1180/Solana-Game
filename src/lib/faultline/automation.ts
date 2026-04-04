@@ -4,7 +4,7 @@ import { createHash } from "crypto";
 
 import { PublicKey, Transaction } from "@solana/web3.js";
 
-import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, PLAYER_STATUS, ROOM_STATUS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS, PLAYER_STATUS, ROOM_STATE_SIZE, ROOM_STATUS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
 import {
   createInitRoomIx,
   createCancelExpiredRoomIx,
@@ -15,6 +15,7 @@ import {
   createRevealDecisionIx
 } from "@/lib/faultline/instructions";
 import { deriveProfilePda } from "@/lib/faultline/pdas";
+import { findJoinableSystemRoom, findSystemPresetById } from "@/lib/faultline/system-rooms";
 import { claimAutomationHeartbeatLock, deleteAutomationCommitPayload, getAutomationCommitPayload } from "@/lib/faultline/automation-store";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
@@ -64,59 +65,75 @@ function buildSystemRoomSeed(presetId: number, slot: number) {
   return createHash("sha256").update(`faultline-system-room:${presetId}:${slot}`).digest().subarray(0, 32);
 }
 
-function hasJoinableSystemRoom(rooms: FaultlineRoomAccount[], presetId: number, currentSlot: number) {
-  return rooms.some(
-    (room) =>
-      room.status === ROOM_STATUS.Open &&
-      room.presetId === presetId &&
-      matchesDefaultRoomPreset(room) &&
-      currentSlot <= Number(room.joinDeadlineSlot) &&
-      room.playerCount < room.maxPlayers
-  );
+async function assertRelayerCanCreateRoom(connection: ReturnType<typeof getServerConnection>, relayer: PublicKey) {
+  const [roomRent, vaultRent, relayerBalance] = await Promise.all([
+    connection.getMinimumBalanceForRentExemption(ROOM_STATE_SIZE),
+    connection.getMinimumBalanceForRentExemption(0),
+    connection.getBalance(relayer, "confirmed")
+  ]);
+  const minimumRequiredLamports = roomRent + vaultRent + 10_000;
+
+  if (relayerBalance < minimumRequiredLamports) {
+    throw new Error(
+      `Le relayer n'a pas assez de SOL pour ouvrir une room. Solde actuel ${relayerBalance} lamports, minimum requis ${minimumRequiredLamports} lamports.`
+    );
+  }
 }
 
-async function ensureSystemRooms(args: {
-  connection: ReturnType<typeof getServerConnection>;
-  programId: PublicKey;
-  relayer: PublicKey;
-  rooms: FaultlineRoomAccount[];
-  summary: AutomationSummary;
-  maxActions: number;
-}) {
-  const { connection, programId, relayer, rooms, summary, maxActions } = args;
-  const slot = await connection.getSlot("confirmed");
-
-  for (const preset of DEFAULT_ROOM_PRESETS) {
-    if (summary.transactionCount >= maxActions || hasJoinableSystemRoom(rooms, preset.id, slot)) {
-      continue;
-    }
-
-    const roomSeed = buildSystemRoomSeed(preset.id, slot);
-    const transaction = new Transaction().add(
-      await createInitRoomIx({
-        programId,
-        creator: relayer,
-        roomSeed,
-        stakeLamports: preset.stakeLamports,
-        minPlayers: preset.minPlayers,
-        maxPlayers: preset.maxPlayers,
-        joinWindowSlots: preset.joinWindowSlots,
-        commitWindowSlots: preset.commitWindowSlots,
-        revealWindowSlots: preset.revealWindowSlots,
-        presetId: preset.id
-      })
-    );
-
-    try {
-      const signature = await sendRelayerTransaction(transaction);
-      summary.transactionCount += 1;
-      summary.actions.push(`create-system-room:${preset.id}:${signature}`);
-      const nextRooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
-      rooms.splice(0, rooms.length, ...nextRooms);
-    } catch (error) {
-      summary.errors.push(`create-system-room:${preset.id}:${error instanceof Error ? error.message : "Erreur inconnue"}`);
-    }
+export async function ensureSystemRoomForPreset(presetId: number) {
+  const preset = findSystemPresetById(presetId);
+  if (!preset) {
+    throw new Error("Preset de room inconnu.");
   }
+
+  const connection = getServerConnection();
+  const programId = getServerProgramId();
+  const relayer = getRelayerPublicKey();
+  const slot = await connection.getSlot("confirmed");
+  const rooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
+  const existingRoom = findJoinableSystemRoom(rooms, preset.id, slot);
+  if (existingRoom) {
+    return existingRoom;
+  }
+
+  const roomSeed = buildSystemRoomSeed(preset.id, slot);
+  await assertRelayerCanCreateRoom(connection, relayer);
+  const transaction = new Transaction().add(
+    await createInitRoomIx({
+      programId,
+      creator: relayer,
+      roomSeed,
+      stakeLamports: preset.stakeLamports,
+      minPlayers: preset.minPlayers,
+      maxPlayers: preset.maxPlayers,
+      joinWindowSlots: preset.joinWindowSlots,
+      commitWindowSlots: preset.commitWindowSlots,
+      revealWindowSlots: preset.revealWindowSlots,
+      presetId: preset.id
+    })
+  );
+
+  try {
+    await sendRelayerTransaction(transaction);
+  } catch (error) {
+    const retrySlot = await connection.getSlot("confirmed");
+    const retryRooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
+    const retryRoom = findJoinableSystemRoom(retryRooms, preset.id, retrySlot);
+    if (retryRoom) {
+      return retryRoom;
+    }
+
+    throw new Error(error instanceof Error ? error.message : "Impossible de preparer une room joignable pour ce preset.");
+  }
+
+  const refreshedSlot = await connection.getSlot("confirmed");
+  const refreshedRooms = (await fetchRooms(connection, programId)).filter((room) => matchesDefaultRoomPreset(room));
+  const createdRoom = findJoinableSystemRoom(refreshedRooms, preset.id, refreshedSlot);
+  if (!createdRoom) {
+    throw new Error("La room a ete initialisee mais reste introuvable apres creation.");
+  }
+
+  return createdRoom;
 }
 
 export async function runAutomationTick(): Promise<AutomationSummary> {
@@ -131,8 +148,6 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
     errors: []
   };
   const maxActions = maxActionsPerRun();
-
-  await ensureSystemRooms({ connection, programId, relayer, rooms, summary, maxActions });
   summary.processedRooms = rooms.length;
 
   async function refresh(roomKey: PublicKey) {

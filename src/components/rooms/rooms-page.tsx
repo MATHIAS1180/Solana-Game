@@ -31,11 +31,6 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
       }
       setRefreshing(true);
       setError(null);
-      await fetch("/api/automation/heartbeat", {
-        method: "POST",
-        cache: "no-store",
-        keepalive: true
-      }).catch(() => undefined);
       const response = await fetch("/api/rooms", { cache: "no-store" });
       const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; rooms?: SerializedFaultlineRoomAccount[] };
 
@@ -99,7 +94,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
               rooms.map((room) => <RoomCard key={room.publicKey.toBase58()} room={room} currentSlot={currentSlot} />)
             ) : (
               <div className="fault-card rounded-[1.75rem] p-8 text-sm leading-7 text-white/70">
-                Aucune room systeme n'est encore visible. Le relayer doit etre configure pour ouvrir automatiquement les rooms de base.
+                Aucune partie active pour l'instant. Utilise les presets a gauche pour ouvrir une room on-chain au moment ou un joueur entre.
               </div>
             )}
           </div>

@@ -31,11 +31,6 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
 
   async function refreshRoom() {
     try {
-      await fetch("/api/automation/heartbeat", {
-        method: "POST",
-        cache: "no-store",
-        keepalive: true
-      }).catch(() => undefined);
       const response = await fetch(`/api/rooms/${roomAddress}`, { cache: "no-store" });
       const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; room?: SerializedFaultlineRoomAccount };
 

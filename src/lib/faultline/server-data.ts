@@ -2,44 +2,38 @@ import "server-only";
 
 import { PublicKey } from "@solana/web3.js";
 
-import { DEFAULT_ROOM_PRESETS, ROOM_STATUS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
+import { matchesDefaultRoomPreset } from "@/lib/faultline/constants";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
+import { selectVisibleSystemRooms } from "@/lib/faultline/system-rooms";
 import { serializeRoomAccount } from "@/lib/faultline/transport";
 import { getServerConnection, getServerProgramId } from "@/lib/solana/server";
 
-function selectVisibleRooms(currentSlot: number, rooms: Awaited<ReturnType<typeof fetchRooms>>) {
-  return DEFAULT_ROOM_PRESETS
-    .map((preset) => {
-      const candidates = rooms.filter((room) => room.presetId === preset.id && matchesDefaultRoomPreset(room));
-      if (candidates.length === 0) {
-        return null;
-      }
+const SNAPSHOT_TTL_MS = 10_000;
 
-      const visibleCandidates = candidates.filter(
-        (room) => !(room.status === ROOM_STATUS.Open && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers)
-      );
-      if (visibleCandidates.length === 0) {
-        return null;
-      }
+let visibleRoomsCache:
+  | {
+      fetchedAt: number;
+      snapshot: Awaited<ReturnType<typeof buildVisibleRoomsSnapshot>>;
+    }
+  | null = null;
 
-      const joinable = visibleCandidates
-        .filter((room) => room.status === ROOM_STATUS.Open && currentSlot <= Number(room.joinDeadlineSlot) && room.playerCount < room.maxPlayers)
-        .sort((left, right) => Number(right.createdSlot - left.createdSlot));
+const roomSnapshotCache = new Map<
+  string,
+  {
+    fetchedAt: number;
+    snapshot: Awaited<ReturnType<typeof buildRoomSnapshot>> | null;
+  }
+>();
 
-      if (joinable.length > 0) {
-        return joinable[0];
-      }
-
-      return visibleCandidates.sort((left, right) => Number(right.createdSlot - left.createdSlot))[0];
-    })
-    .filter((room): room is NonNullable<typeof room> => room !== null);
+function isFresh(fetchedAt: number) {
+  return Date.now() - fetchedAt <= SNAPSHOT_TTL_MS;
 }
 
-export async function getVisibleRoomsSnapshot() {
+async function buildVisibleRoomsSnapshot() {
   const connection = getServerConnection();
   const programId = getServerProgramId();
   const [rooms, currentSlot] = await Promise.all([fetchRooms(connection, programId), connection.getSlot("confirmed")]);
-  const visibleRooms = selectVisibleRooms(currentSlot, rooms);
+  const visibleRooms = selectVisibleSystemRooms(currentSlot, rooms.filter((room) => matchesDefaultRoomPreset(room)));
 
   return {
     currentSlot,
@@ -47,7 +41,7 @@ export async function getVisibleRoomsSnapshot() {
   };
 }
 
-export async function getRoomSnapshot(roomAddress: string) {
+async function buildRoomSnapshot(roomAddress: string) {
   const connection = getServerConnection();
   const roomKey = new PublicKey(roomAddress);
   const [roomAccount, currentSlot] = await Promise.all([fetchRoom(connection, roomKey), connection.getSlot("confirmed")]);
@@ -60,4 +54,41 @@ export async function getRoomSnapshot(roomAddress: string) {
     currentSlot,
     room: serializeRoomAccount(roomAccount)
   };
+}
+
+export async function getVisibleRoomsSnapshot() {
+  if (visibleRoomsCache && isFresh(visibleRoomsCache.fetchedAt)) {
+    return visibleRoomsCache.snapshot;
+  }
+
+  try {
+    const snapshot = await buildVisibleRoomsSnapshot();
+    visibleRoomsCache = { fetchedAt: Date.now(), snapshot };
+    return snapshot;
+  } catch (error) {
+    if (visibleRoomsCache) {
+      return visibleRoomsCache.snapshot;
+    }
+
+    throw error;
+  }
+}
+
+export async function getRoomSnapshot(roomAddress: string) {
+  const cached = roomSnapshotCache.get(roomAddress);
+  if (cached && isFresh(cached.fetchedAt)) {
+    return cached.snapshot;
+  }
+
+  try {
+    const snapshot = await buildRoomSnapshot(roomAddress);
+    roomSnapshotCache.set(roomAddress, { fetchedAt: Date.now(), snapshot });
+    return snapshot;
+  } catch (error) {
+    if (cached) {
+      return cached.snapshot;
+    }
+
+    throw error;
+  }
 }
