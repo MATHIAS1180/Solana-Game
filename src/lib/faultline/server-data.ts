@@ -15,7 +15,14 @@ function selectVisibleRooms(currentSlot: number, rooms: Awaited<ReturnType<typeo
         return null;
       }
 
-      const joinable = candidates
+      const visibleCandidates = candidates.filter(
+        (room) => !(room.status === ROOM_STATUS.Open && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers)
+      );
+      if (visibleCandidates.length === 0) {
+        return null;
+      }
+
+      const joinable = visibleCandidates
         .filter((room) => room.status === ROOM_STATUS.Open && currentSlot <= Number(room.joinDeadlineSlot) && room.playerCount < room.maxPlayers)
         .sort((left, right) => Number(right.createdSlot - left.createdSlot));
 
@@ -23,7 +30,7 @@ function selectVisibleRooms(currentSlot: number, rooms: Awaited<ReturnType<typeo
         return joinable[0];
       }
 
-      return candidates.sort((left, right) => Number(right.createdSlot - left.createdSlot))[0];
+      return visibleCandidates.sort((left, right) => Number(right.createdSlot - left.createdSlot))[0];
     })
     .filter((room): room is NonNullable<typeof room> => room !== null);
 }

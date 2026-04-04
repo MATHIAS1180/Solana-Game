@@ -6,10 +6,11 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { LoaderCircle, Lock, ShieldAlert } from "lucide-react";
 
-import { RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
+import { PLAYER_STATUS, RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { buildCommitHash, generateNonce, validateForecast } from "@/lib/faultline/commit";
 import { createJoinRoomIx, createSubmitCommitIx } from "@/lib/faultline/instructions";
 import { deriveProfilePda } from "@/lib/faultline/pdas";
+import { fetchRoom, findPlayerIndex } from "@/lib/faultline/rooms";
 import { persistCommitPayload } from "@/lib/faultline/storage";
 import type { FaultlineRoomAccount, Forecast, RiskBand, Zone } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
@@ -67,6 +68,18 @@ export function CommitComposer({
 
   const validation = useMemo(() => validateForecast(forecast, room.minPlayers, room.maxPlayers), [forecast, room.maxPlayers, room.minPlayers]);
 
+  async function loadLatestRoom() {
+    const latestRoom = await fetchRoom(connection, room.publicKey);
+    if (!latestRoom) {
+      throw new Error("La room est introuvable on-chain.");
+    }
+
+    return {
+      latestRoom,
+      currentSlot: await connection.getSlot("confirmed")
+    };
+  }
+
   async function submitCommit() {
     if (!publicKey || !sendTransaction || !programId) {
       setMessage("Wallet non connecte ou Program ID absent.");
@@ -82,9 +95,24 @@ export function CommitComposer({
       setPending(true);
       setMessage(null);
 
+      const { latestRoom, currentSlot } = await loadLatestRoom();
+      const latestPlayerIndex = findPlayerIndex(latestRoom, publicKey);
+
+      if (latestPlayerIndex === -1) {
+        if (
+          latestRoom.status !== ROOM_STATUS.Open ||
+          currentSlot > Number(latestRoom.joinDeadlineSlot) ||
+          latestRoom.playerCount >= latestRoom.maxPlayers
+        ) {
+          throw new Error("La room n'est plus joignable. Rafraichis la page pour recuperer une room active.");
+        }
+      } else if (latestRoom.playerStatuses[latestPlayerIndex] !== PLAYER_STATUS.Joined) {
+        throw new Error("Cette participation n'attend plus de commit. Rafraichis la page.");
+      }
+
       const nonce = generateNonce();
       const payload = {
-        room: room.publicKey,
+        room: latestRoom.publicKey,
         player: publicKey,
         zone,
         riskBand,
@@ -94,7 +122,7 @@ export function CommitComposer({
       const commitHash = buildCommitHash(payload);
 
       const storedPayload = {
-        room: room.publicKey.toBase58(),
+        room: latestRoom.publicKey.toBase58(),
         player: publicKey.toBase58(),
         zone,
         riskBand,
@@ -110,21 +138,21 @@ export function CommitComposer({
       const instruction = createSubmitCommitIx({
         programId,
         player: publicKey,
-        room: room.publicKey,
+        room: latestRoom.publicKey,
         profile,
         commitHash
       });
 
       const transaction = new Transaction();
-      if (!isJoined) {
-        transaction.add(await createJoinRoomIx({ programId, player: publicKey, room: room.publicKey }));
+      if (latestPlayerIndex === -1) {
+        transaction.add(await createJoinRoomIx({ programId, player: publicKey, room: latestRoom.publicKey }));
       }
       transaction.add(instruction);
 
       await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
       const syncedToAutomation = await syncAutomationPayload(storedPayload).catch(() => false);
       setMessage(
-        `${isJoined ? "Commit verrouille" : "Join + commit confirmes"} pour ${shortKey(room.publicKey)}. ${syncedToAutomation ? "Le relayer pourra reveal automatiquement." : "Le payload est garde localement, sans sync serveur."}`
+        `${latestPlayerIndex === -1 ? "Join + commit confirmes" : "Commit verrouille"} pour ${shortKey(latestRoom.publicKey)}. ${syncedToAutomation ? "Le relayer pourra reveal automatiquement." : "Le payload est garde localement, sans sync serveur."}`
       );
       await onCommitted();
     } catch (error) {

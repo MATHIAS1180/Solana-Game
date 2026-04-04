@@ -31,6 +31,11 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
       }
       setRefreshing(true);
       setError(null);
+      await fetch("/api/automation/heartbeat", {
+        method: "POST",
+        cache: "no-store",
+        keepalive: true
+      }).catch(() => undefined);
       const response = await fetch("/api/rooms", { cache: "no-store" });
       const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; rooms?: SerializedFaultlineRoomAccount[] };
 
@@ -49,12 +54,8 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
   }
 
   useEffect(() => {
-    if (initialRooms || initialError) {
-      return;
-    }
-
     void refreshRooms();
-  }, [initialError, initialRooms]);
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => {

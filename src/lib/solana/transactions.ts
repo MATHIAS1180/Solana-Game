@@ -20,7 +20,7 @@ export async function sendAndConfirm(
     skipPreflight: false
   });
 
-  await connection.confirmTransaction(
+  const confirmation = await connection.confirmTransaction(
     {
       signature,
       blockhash: latestBlockhash.blockhash,
@@ -28,6 +28,17 @@ export async function sendAndConfirm(
     },
     "confirmed"
   );
+
+  if (confirmation.value.err) {
+    const confirmedTransaction = await connection.getTransaction(signature, {
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0
+    });
+    const logs = confirmedTransaction?.meta?.logMessages?.slice(-8).join(" | ");
+    const error = JSON.stringify(confirmation.value.err);
+
+    throw new Error(logs ? `Transaction echouee (${signature}): ${error}. Logs: ${logs}` : `Transaction echouee (${signature}): ${error}.`);
+  }
 
   return signature;
 }
