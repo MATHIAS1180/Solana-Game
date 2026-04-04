@@ -9,6 +9,15 @@ export function isPendingCancellationRoom(room: FaultlineRoomAccount, currentSlo
   return room.status === ROOM_STATUS.Open && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
 }
 
+export function isSettledSystemRoom(room: FaultlineRoomAccount) {
+  return (
+    room.status === ROOM_STATUS.Resolved ||
+    room.status === ROOM_STATUS.Cancelled ||
+    room.status === ROOM_STATUS.Emergency ||
+    room.status === ROOM_STATUS.Closed
+  );
+}
+
 export function isJoinableSystemRoom(room: FaultlineRoomAccount, currentSlot: number) {
   return (
     matchesDefaultRoomPreset(room) &&
@@ -26,23 +35,25 @@ export function findJoinableSystemRoom(rooms: FaultlineRoomAccount[], presetId: 
   );
 }
 
+export function findVisibleSystemRoom(rooms: FaultlineRoomAccount[], presetId: number, currentSlot: number) {
+  const candidates = rooms
+    .filter((room) => room.presetId === presetId && matchesDefaultRoomPreset(room))
+    .sort((left, right) => Number(right.createdSlot - left.createdSlot));
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return (
+    candidates.find((room) => isJoinableSystemRoom(room, currentSlot)) ??
+    candidates.find((room) => isPendingCancellationRoom(room, currentSlot)) ??
+    candidates.find((room) => !isSettledSystemRoom(room) && !isPendingCancellationRoom(room, currentSlot)) ??
+    null
+  );
+}
+
 export function selectVisibleSystemRooms(currentSlot: number, rooms: FaultlineRoomAccount[]) {
   return DEFAULT_ROOM_PRESETS
-    .map((preset) => {
-      const candidates = rooms.filter((room) => room.presetId === preset.id && matchesDefaultRoomPreset(room));
-      if (candidates.length === 0) {
-        return null;
-      }
-
-      const visibleCandidates = candidates.filter((room) => !isPendingCancellationRoom(room, currentSlot));
-      if (visibleCandidates.length === 0) {
-        return null;
-      }
-
-      return (
-        findJoinableSystemRoom(visibleCandidates, preset.id, currentSlot) ??
-        visibleCandidates.sort((left, right) => Number(right.createdSlot - left.createdSlot))[0]
-      );
-    })
+    .map((preset) => findVisibleSystemRoom(rooms, preset.id, currentSlot))
     .filter((room): room is NonNullable<typeof room> => room !== null);
 }

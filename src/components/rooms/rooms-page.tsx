@@ -7,6 +7,7 @@ import { RefreshCw } from "lucide-react";
 import { ProgramBanner } from "@/components/game/program-banner";
 import { CreateRoomForm } from "@/components/rooms/create-room-form";
 import { RoomCard } from "@/components/rooms/room-card";
+import { DEFAULT_ROOM_PRESETS } from "@/lib/faultline/constants";
 import { AUTOMATION_HEARTBEAT_INTERVAL_MS } from "@/lib/faultline/constants";
 import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
@@ -70,8 +71,8 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
         <div className="space-y-5">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Room Discovery</p>
-              <h1 className="mt-3 font-display text-4xl text-white">Toutes les rooms Faultline detectees sur devnet</h1>
+              <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Permanent Presets</p>
+              <h1 className="mt-3 font-display text-4xl text-white">Les rooms 0.01 a 1 SOL restent toujours visibles</h1>
             </div>
             <button
               type="button"
@@ -86,18 +87,14 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
           {error ? <div className="fault-card rounded-3xl p-5 text-sm text-fault-flare">{error}</div> : null}
 
           <div className="grid gap-4 md:grid-cols-2">
-            {loading ? (
-              Array.from({ length: 4 }, (_, index) => (
-                <div key={index} className="fault-card h-64 animate-pulse rounded-[1.75rem] bg-white/5" />
-              ))
-            ) : rooms.length > 0 ? (
-              rooms.map((room) => <RoomCard key={room.publicKey.toBase58()} room={room} currentSlot={currentSlot} />)
-            ) : (
-              <div className="fault-card rounded-[1.75rem] p-8 text-sm leading-7 text-white/70">
-                Aucune partie active pour l'instant. Utilise les presets a gauche pour creer une room depuis ton wallet.
-              </div>
-            )}
+            {DEFAULT_ROOM_PRESETS.map((preset) => {
+              const room = rooms.find((item) => item.presetId === preset.id) ?? null;
+
+              return <RoomCard key={preset.id} preset={preset} room={room} currentSlot={currentSlot} onRefresh={refreshRooms} />;
+            })}
           </div>
+
+          {loading ? <div className="text-sm text-white/55">Chargement des etats on-chain...</div> : null}
         </div>
       </section>
     </main>
