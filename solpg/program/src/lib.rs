@@ -1,4 +1,3 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     clock::Clock,
@@ -83,7 +82,12 @@ impl From<FaultlineError> for ProgramError {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone)]
+trait FaultlineCodec: Sized {
+    fn decode(input: &[u8]) -> Result<Self, ProgramError>;
+    fn encode(&self, output: &mut [u8]) -> ProgramResult;
+}
+
+#[derive(Clone)]
 pub struct RoomState {
     pub version: u8,
     pub room_bump: u8,
@@ -198,7 +202,7 @@ impl RoomState {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone)]
+#[derive(Clone)]
 pub struct ProfileState {
     pub version: u8,
     pub bump: u8,
@@ -255,7 +259,7 @@ impl ProfileState {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone)]
+#[derive(Clone)]
 pub struct ReserveState {
     pub version: u8,
     pub bump: u8,
@@ -267,6 +271,337 @@ pub struct ReserveState {
     pub reveal_timeout_collected_lamports: u64,
     pub free_access_distributed_lamports: u64,
     pub authority: [u8; 32],
+}
+
+impl FaultlineCodec for RoomState {
+    fn decode(input: &[u8]) -> Result<Self, ProgramError> {
+        if input.len() < ROOM_STATE_SIZE {
+            return Err(FaultlineError::InvalidRoomState.into());
+        }
+
+        let mut offset = 0usize;
+        let version = read_u8(input, &mut offset)?;
+        let room_bump = read_u8(input, &mut offset)?;
+        let vault_bump = read_u8(input, &mut offset)?;
+        let status = read_u8(input, &mut offset)?;
+        let zone_count = read_u8(input, &mut offset)?;
+        let min_players = read_u8(input, &mut offset)?;
+        let max_players = read_u8(input, &mut offset)?;
+        let player_count = read_u8(input, &mut offset)?;
+        let committed_count = read_u8(input, &mut offset)?;
+        let revealed_count = read_u8(input, &mut offset)?;
+        let active_count = read_u8(input, &mut offset)?;
+        let winner_count = read_u8(input, &mut offset)?;
+        let preset_id = read_u8(input, &mut offset)?;
+        let flags = read_u8(input, &mut offset)?;
+        let stake_lamports = read_u64(input, &mut offset)?;
+        let total_staked_lamports = read_u64(input, &mut offset)?;
+        let distributable_lamports = read_u64(input, &mut offset)?;
+        let reserve_fee_lamports = read_u64(input, &mut offset)?;
+        let slashed_to_reserve_lamports = read_u64(input, &mut offset)?;
+        let created_slot = read_u64(input, &mut offset)?;
+        let join_deadline_slot = read_u64(input, &mut offset)?;
+        let commit_duration_slots = read_u64(input, &mut offset)?;
+        let commit_deadline_slot = read_u64(input, &mut offset)?;
+        let reveal_duration_slots = read_u64(input, &mut offset)?;
+        let reveal_deadline_slot = read_u64(input, &mut offset)?;
+        let resolve_slot = read_u64(input, &mut offset)?;
+        let creator = read_array::<32>(input, &mut offset)?;
+        let vault = read_array::<32>(input, &mut offset)?;
+        let reserve = read_array::<32>(input, &mut offset)?;
+        let treasury = read_array::<32>(input, &mut offset)?;
+        let room_seed = read_array::<32>(input, &mut offset)?;
+        let final_histogram = read_array::<5>(input, &mut offset)?;
+        let winner_indices = read_array::<4>(input, &mut offset)?;
+
+        let mut payout_bps = [0u16; 4];
+        for item in payout_bps.iter_mut() {
+            *item = read_u16(input, &mut offset)?;
+        }
+
+        let mut player_keys = [[0u8; 32]; MAX_PLAYERS];
+        for item in player_keys.iter_mut() {
+            *item = read_array::<32>(input, &mut offset)?;
+        }
+
+        let mut player_status = [0u8; MAX_PLAYERS];
+        for item in player_status.iter_mut() {
+            *item = read_u8(input, &mut offset)?;
+        }
+
+        let mut player_claimed = [0u8; MAX_PLAYERS];
+        for item in player_claimed.iter_mut() {
+            *item = read_u8(input, &mut offset)?;
+        }
+
+        let mut player_zone = [0u8; MAX_PLAYERS];
+        for item in player_zone.iter_mut() {
+            *item = read_u8(input, &mut offset)?;
+        }
+
+        let mut player_risk = [0u8; MAX_PLAYERS];
+        for item in player_risk.iter_mut() {
+            *item = read_u8(input, &mut offset)?;
+        }
+
+        let mut player_commit_hashes = [[0u8; 32]; MAX_PLAYERS];
+        for item in player_commit_hashes.iter_mut() {
+            *item = read_array::<32>(input, &mut offset)?;
+        }
+
+        let mut player_forecasts = [[0u8; 5]; MAX_PLAYERS];
+        for item in player_forecasts.iter_mut() {
+            *item = read_array::<5>(input, &mut offset)?;
+        }
+
+        let mut player_errors = [0u16; MAX_PLAYERS];
+        for item in player_errors.iter_mut() {
+            *item = read_u16(input, &mut offset)?;
+        }
+
+        let mut player_scores_bps = [0u32; MAX_PLAYERS];
+        for item in player_scores_bps.iter_mut() {
+            *item = read_u32(input, &mut offset)?;
+        }
+
+        let mut player_rewards_lamports = [0u64; MAX_PLAYERS];
+        for item in player_rewards_lamports.iter_mut() {
+            *item = read_u64(input, &mut offset)?;
+        }
+
+        Ok(Self {
+            version,
+            room_bump,
+            vault_bump,
+            status,
+            zone_count,
+            min_players,
+            max_players,
+            player_count,
+            committed_count,
+            revealed_count,
+            active_count,
+            winner_count,
+            preset_id,
+            flags,
+            stake_lamports,
+            total_staked_lamports,
+            distributable_lamports,
+            reserve_fee_lamports,
+            slashed_to_reserve_lamports,
+            created_slot,
+            join_deadline_slot,
+            commit_duration_slots,
+            commit_deadline_slot,
+            reveal_duration_slots,
+            reveal_deadline_slot,
+            resolve_slot,
+            creator,
+            vault,
+            reserve,
+            treasury,
+            room_seed,
+            final_histogram,
+            winner_indices,
+            payout_bps,
+            player_keys,
+            player_status,
+            player_claimed,
+            player_zone,
+            player_risk,
+            player_commit_hashes,
+            player_forecasts,
+            player_errors,
+            player_scores_bps,
+            player_rewards_lamports,
+        })
+    }
+
+    fn encode(&self, output: &mut [u8]) -> ProgramResult {
+        if output.len() < ROOM_STATE_SIZE {
+            return Err(FaultlineError::InvalidRoomState.into());
+        }
+        output.fill(0);
+
+        let mut offset = 0usize;
+        write_u8(output, &mut offset, self.version)?;
+        write_u8(output, &mut offset, self.room_bump)?;
+        write_u8(output, &mut offset, self.vault_bump)?;
+        write_u8(output, &mut offset, self.status)?;
+        write_u8(output, &mut offset, self.zone_count)?;
+        write_u8(output, &mut offset, self.min_players)?;
+        write_u8(output, &mut offset, self.max_players)?;
+        write_u8(output, &mut offset, self.player_count)?;
+        write_u8(output, &mut offset, self.committed_count)?;
+        write_u8(output, &mut offset, self.revealed_count)?;
+        write_u8(output, &mut offset, self.active_count)?;
+        write_u8(output, &mut offset, self.winner_count)?;
+        write_u8(output, &mut offset, self.preset_id)?;
+        write_u8(output, &mut offset, self.flags)?;
+        write_u64(output, &mut offset, self.stake_lamports)?;
+        write_u64(output, &mut offset, self.total_staked_lamports)?;
+        write_u64(output, &mut offset, self.distributable_lamports)?;
+        write_u64(output, &mut offset, self.reserve_fee_lamports)?;
+        write_u64(output, &mut offset, self.slashed_to_reserve_lamports)?;
+        write_u64(output, &mut offset, self.created_slot)?;
+        write_u64(output, &mut offset, self.join_deadline_slot)?;
+        write_u64(output, &mut offset, self.commit_duration_slots)?;
+        write_u64(output, &mut offset, self.commit_deadline_slot)?;
+        write_u64(output, &mut offset, self.reveal_duration_slots)?;
+        write_u64(output, &mut offset, self.reveal_deadline_slot)?;
+        write_u64(output, &mut offset, self.resolve_slot)?;
+        write_bytes(output, &mut offset, &self.creator)?;
+        write_bytes(output, &mut offset, &self.vault)?;
+        write_bytes(output, &mut offset, &self.reserve)?;
+        write_bytes(output, &mut offset, &self.treasury)?;
+        write_bytes(output, &mut offset, &self.room_seed)?;
+        write_bytes(output, &mut offset, &self.final_histogram)?;
+        write_bytes(output, &mut offset, &self.winner_indices)?;
+        for item in self.payout_bps.iter() {
+            write_u16(output, &mut offset, *item)?;
+        }
+        for item in self.player_keys.iter() {
+            write_bytes(output, &mut offset, item)?;
+        }
+        for item in self.player_status.iter() {
+            write_u8(output, &mut offset, *item)?;
+        }
+        for item in self.player_claimed.iter() {
+            write_u8(output, &mut offset, *item)?;
+        }
+        for item in self.player_zone.iter() {
+            write_u8(output, &mut offset, *item)?;
+        }
+        for item in self.player_risk.iter() {
+            write_u8(output, &mut offset, *item)?;
+        }
+        for item in self.player_commit_hashes.iter() {
+            write_bytes(output, &mut offset, item)?;
+        }
+        for item in self.player_forecasts.iter() {
+            write_bytes(output, &mut offset, item)?;
+        }
+        for item in self.player_errors.iter() {
+            write_u16(output, &mut offset, *item)?;
+        }
+        for item in self.player_scores_bps.iter() {
+            write_u32(output, &mut offset, *item)?;
+        }
+        for item in self.player_rewards_lamports.iter() {
+            write_u64(output, &mut offset, *item)?;
+        }
+        Ok(())
+    }
+}
+
+impl FaultlineCodec for ProfileState {
+    fn decode(input: &[u8]) -> Result<Self, ProgramError> {
+        if input.len() < PROFILE_STATE_SIZE {
+            return Err(FaultlineError::InvalidRoomState.into());
+        }
+
+        let mut offset = 0usize;
+        Ok(Self {
+            version: read_u8(input, &mut offset)?,
+            bump: read_u8(input, &mut offset)?,
+            flags: read_u16(input, &mut offset)?,
+            owner: read_array::<32>(input, &mut offset)?,
+            games_joined: read_u32(input, &mut offset)?,
+            games_committed: read_u32(input, &mut offset)?,
+            games_revealed: read_u32(input, &mut offset)?,
+            games_resolved: read_u32(input, &mut offset)?,
+            games_won: read_u32(input, &mut offset)?,
+            top1_count: read_u32(input, &mut offset)?,
+            top2_count: read_u32(input, &mut offset)?,
+            top3_count: read_u32(input, &mut offset)?,
+            calm_count: read_u32(input, &mut offset)?,
+            edge_count: read_u32(input, &mut offset)?,
+            knife_count: read_u32(input, &mut offset)?,
+            knife_hits: read_u32(input, &mut offset)?,
+            commit_timeout_count: read_u16(input, &mut offset)?,
+            reveal_timeout_count: read_u16(input, &mut offset)?,
+            cumulative_abs_error: read_u64(input, &mut offset)?,
+            cumulative_profit_lamports: read_i64(input, &mut offset)?,
+            last_free_access_slot: read_u64(input, &mut offset)?,
+            last_game_slot: read_u64(input, &mut offset)?,
+            reserved: read_array::<16>(input, &mut offset)?,
+        })
+    }
+
+    fn encode(&self, output: &mut [u8]) -> ProgramResult {
+        if output.len() < PROFILE_STATE_SIZE {
+            return Err(FaultlineError::InvalidRoomState.into());
+        }
+        output.fill(0);
+
+        let mut offset = 0usize;
+        write_u8(output, &mut offset, self.version)?;
+        write_u8(output, &mut offset, self.bump)?;
+        write_u16(output, &mut offset, self.flags)?;
+        write_bytes(output, &mut offset, &self.owner)?;
+        write_u32(output, &mut offset, self.games_joined)?;
+        write_u32(output, &mut offset, self.games_committed)?;
+        write_u32(output, &mut offset, self.games_revealed)?;
+        write_u32(output, &mut offset, self.games_resolved)?;
+        write_u32(output, &mut offset, self.games_won)?;
+        write_u32(output, &mut offset, self.top1_count)?;
+        write_u32(output, &mut offset, self.top2_count)?;
+        write_u32(output, &mut offset, self.top3_count)?;
+        write_u32(output, &mut offset, self.calm_count)?;
+        write_u32(output, &mut offset, self.edge_count)?;
+        write_u32(output, &mut offset, self.knife_count)?;
+        write_u32(output, &mut offset, self.knife_hits)?;
+        write_u16(output, &mut offset, self.commit_timeout_count)?;
+        write_u16(output, &mut offset, self.reveal_timeout_count)?;
+        write_u64(output, &mut offset, self.cumulative_abs_error)?;
+        write_i64(output, &mut offset, self.cumulative_profit_lamports)?;
+        write_u64(output, &mut offset, self.last_free_access_slot)?;
+        write_u64(output, &mut offset, self.last_game_slot)?;
+        write_bytes(output, &mut offset, &self.reserved)?;
+        Ok(())
+    }
+}
+
+impl FaultlineCodec for ReserveState {
+    fn decode(input: &[u8]) -> Result<Self, ProgramError> {
+        if input.len() < RESERVE_STATE_SIZE {
+            return Err(FaultlineError::InvalidRoomState.into());
+        }
+
+        let mut offset = 0usize;
+        Ok(Self {
+            version: read_u8(input, &mut offset)?,
+            bump: read_u8(input, &mut offset)?,
+            paused: read_bool(input, &mut offset)?,
+            free_access_enabled: read_bool(input, &mut offset)?,
+            total_collected_lamports: read_u64(input, &mut offset)?,
+            total_distributed_lamports: read_u64(input, &mut offset)?,
+            anti_grief_collected_lamports: read_u64(input, &mut offset)?,
+            reveal_timeout_collected_lamports: read_u64(input, &mut offset)?,
+            free_access_distributed_lamports: read_u64(input, &mut offset)?,
+            authority: read_array::<32>(input, &mut offset)?,
+        })
+    }
+
+    fn encode(&self, output: &mut [u8]) -> ProgramResult {
+        if output.len() < RESERVE_STATE_SIZE {
+            return Err(FaultlineError::InvalidRoomState.into());
+        }
+        output.fill(0);
+
+        let mut offset = 0usize;
+        write_u8(output, &mut offset, self.version)?;
+        write_u8(output, &mut offset, self.bump)?;
+        write_bool(output, &mut offset, self.paused)?;
+        write_bool(output, &mut offset, self.free_access_enabled)?;
+        write_u64(output, &mut offset, self.total_collected_lamports)?;
+        write_u64(output, &mut offset, self.total_distributed_lamports)?;
+        write_u64(output, &mut offset, self.anti_grief_collected_lamports)?;
+        write_u64(output, &mut offset, self.reveal_timeout_collected_lamports)?;
+        write_u64(output, &mut offset, self.free_access_distributed_lamports)?;
+        write_bytes(output, &mut offset, &self.authority)?;
+        Ok(())
+    }
 }
 
 impl ReserveState {
@@ -1036,8 +1371,20 @@ fn write_u16(data: &mut [u8], offset: &mut usize, value: u16) -> ProgramResult {
     write_bytes(data, offset, &value.to_le_bytes())
 }
 
+fn write_u32(data: &mut [u8], offset: &mut usize, value: u32) -> ProgramResult {
+    write_bytes(data, offset, &value.to_le_bytes())
+}
+
 fn write_u64(data: &mut [u8], offset: &mut usize, value: u64) -> ProgramResult {
     write_bytes(data, offset, &value.to_le_bytes())
+}
+
+fn write_i64(data: &mut [u8], offset: &mut usize, value: i64) -> ProgramResult {
+    write_bytes(data, offset, &value.to_le_bytes())
+}
+
+fn write_bool(data: &mut [u8], offset: &mut usize, value: bool) -> ProgramResult {
+    write_u8(data, offset, if value { 1 } else { 0 })
 }
 
 fn write_bytes(data: &mut [u8], offset: &mut usize, value: &[u8]) -> ProgramResult {
@@ -1052,14 +1399,14 @@ fn write_bytes(data: &mut [u8], offset: &mut usize, value: &[u8]) -> ProgramResu
     Ok(())
 }
 
-fn load_state<T: BorshDeserialize>(account: &AccountInfo) -> Result<T, ProgramError> {
+fn load_state<T: FaultlineCodec>(account: &AccountInfo) -> Result<T, ProgramError> {
     let data = account.try_borrow_data()?;
-    T::try_from_slice(&data).map_err(|_| FaultlineError::InvalidRoomState.into())
+    T::decode(&data)
 }
 
-fn store_state<T: BorshSerialize>(value: &T, account: &AccountInfo) -> ProgramResult {
+fn store_state<T: FaultlineCodec>(value: &T, account: &AccountInfo) -> ProgramResult {
     let mut data = account.try_borrow_mut_data()?;
-    value.serialize(&mut &mut data[..]).map_err(|_| FaultlineError::InvalidRoomState.into())
+    value.encode(&mut data)
 }
 
 fn move_lamports(from: &AccountInfo, to: &AccountInfo, amount: u64) -> ProgramResult {
@@ -1217,6 +1564,58 @@ fn take_u8(input: &mut &[u8]) -> Result<u8, ProgramError> {
     let (&value, rest) = input.split_first().ok_or(FaultlineError::InvalidInstruction)?;
     *input = rest;
     Ok(value)
+}
+
+fn read_u8(input: &[u8], offset: &mut usize) -> Result<u8, ProgramError> {
+    let bytes = read_slice(input, offset, 1)?;
+    Ok(bytes[0])
+}
+
+fn read_bool(input: &[u8], offset: &mut usize) -> Result<bool, ProgramError> {
+    Ok(read_u8(input, offset)? != 0)
+}
+
+fn read_u16(input: &[u8], offset: &mut usize) -> Result<u16, ProgramError> {
+    let bytes = read_slice(input, offset, 2)?;
+    Ok(u16::from_le_bytes([bytes[0], bytes[1]]))
+}
+
+fn read_u32(input: &[u8], offset: &mut usize) -> Result<u32, ProgramError> {
+    let bytes = read_slice(input, offset, 4)?;
+    Ok(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+}
+
+fn read_u64(input: &[u8], offset: &mut usize) -> Result<u64, ProgramError> {
+    let bytes = read_slice(input, offset, 8)?;
+    Ok(u64::from_le_bytes([
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+    ]))
+}
+
+fn read_i64(input: &[u8], offset: &mut usize) -> Result<i64, ProgramError> {
+    let bytes = read_slice(input, offset, 8)?;
+    Ok(i64::from_le_bytes([
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+    ]))
+}
+
+fn read_slice<'a>(input: &'a [u8], offset: &mut usize, length: usize) -> Result<&'a [u8], ProgramError> {
+    let end = offset
+        .checked_add(length)
+        .ok_or(FaultlineError::ArithmeticOverflow)?;
+    if end > input.len() {
+        return Err(FaultlineError::InvalidRoomState.into());
+    }
+    let slice = &input[*offset..end];
+    *offset = end;
+    Ok(slice)
+}
+
+fn read_array<const N: usize>(input: &[u8], offset: &mut usize) -> Result<[u8; N], ProgramError> {
+    let slice = read_slice(input, offset, N)?;
+    let mut output = [0u8; N];
+    output.copy_from_slice(slice);
+    Ok(output)
 }
 
 fn take_u64(input: &mut &[u8]) -> Result<u64, ProgramError> {
