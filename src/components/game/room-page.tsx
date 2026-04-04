@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Clock3, Users } from "lucide-react";
 
+import { AutomationHeartbeat } from "@/components/game/automation-heartbeat";
 import { PhaseBadge } from "@/components/game/phase-badge";
 import { ProgramBanner } from "@/components/game/program-banner";
 import { ResultPanel } from "@/components/game/result-panel";
@@ -80,6 +81,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
+      <AutomationHeartbeat />
       <ProgramBanner />
 
       <section className="fault-card rounded-[2rem] p-6 sm:p-8">

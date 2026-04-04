@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { RefreshCw } from "lucide-react";
 
+import { AutomationHeartbeat } from "@/components/game/automation-heartbeat";
 import { ProgramBanner } from "@/components/game/program-banner";
 import { CreateRoomForm } from "@/components/rooms/create-room-form";
 import { RoomCard } from "@/components/rooms/room-card";
@@ -62,6 +63,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
+      <AutomationHeartbeat />
       <ProgramBanner />
 
       <section className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">

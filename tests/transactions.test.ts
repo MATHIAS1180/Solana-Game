@@ -1,7 +1,7 @@
 import { PublicKey, Transaction } from "@solana/web3.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { sendAndConfirm } from "@/lib/solana/transactions";
+import { pollForSignatureConfirmation, sendAndConfirm } from "@/lib/solana/transactions";
 
 describe("solana transactions", () => {
   it("retourne la signature quand la transaction est confirmee sans erreur", async () => {
@@ -10,10 +10,10 @@ describe("solana transactions", () => {
         blockhash: "blockhash-ok",
         lastValidBlockHeight: 42
       }),
-      confirmTransaction: vi.fn().mockResolvedValue({
-        context: { slot: 1 },
-        value: { err: null }
+      getSignatureStatuses: vi.fn().mockResolvedValue({
+        value: [{ confirmationStatus: "confirmed", err: null }]
       }),
+      getBlockHeight: vi.fn(),
       getTransaction: vi.fn()
     } as never;
     const sendTransaction = vi.fn().mockResolvedValue("signature-ok");
@@ -30,10 +30,10 @@ describe("solana transactions", () => {
         blockhash: "blockhash-ko",
         lastValidBlockHeight: 84
       }),
-      confirmTransaction: vi.fn().mockResolvedValue({
-        context: { slot: 1 },
-        value: { err: { InstructionError: [1, { Custom: 6008 }] } }
+      getSignatureStatuses: vi.fn().mockResolvedValue({
+        value: [{ confirmationStatus: "confirmed", err: { InstructionError: [1, { Custom: 6008 }] } }]
       }),
+      getBlockHeight: vi.fn(),
       getTransaction: vi.fn().mockResolvedValue({
         meta: {
           logMessages: ["Program log: JoinClosed"]
@@ -45,5 +45,26 @@ describe("solana transactions", () => {
     await expect(sendAndConfirm(connection, sendTransaction, new PublicKey(new Uint8Array(32).fill(2)), new Transaction())).rejects.toThrow(
       /Transaction echouee \(signature-ko\).*JoinClosed/
     );
+  });
+
+  it("attend la confirmation en polling HTTP", async () => {
+    const connection = {
+      getSignatureStatuses: vi
+        .fn()
+        .mockResolvedValueOnce({ value: [null] })
+        .mockResolvedValueOnce({ value: [{ confirmationStatus: "processed", err: null }] })
+        .mockResolvedValueOnce({ value: [{ confirmationStatus: "confirmed", err: null }] }),
+      getBlockHeight: vi.fn().mockResolvedValue(12)
+    } as never;
+
+    const result = await pollForSignatureConfirmation({
+      connection,
+      signature: "signature-poll",
+      lastValidBlockHeight: 20,
+      pollIntervalMs: 0
+    });
+
+    expect(result).toEqual({ err: null });
+    expect(connection.getSignatureStatuses).toHaveBeenCalledTimes(3);
   });
 });

@@ -38,6 +38,7 @@ Copier .env.example vers .env.local et renseigner au minimum:
 
 - NEXT_PUBLIC_SOLANA_NETWORK=devnet
 - NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
+- FAULTLINE_SERVER_RPC_URL=<RPC_DEVNET_DEDIE_RECOMMANDE_POUR_LE_BACKEND>
 - NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=7rMMERfdSFC3PJXMUytdoUGCikKLiqS7ha9ZE3KFx3Ns
 - NEXT_PUBLIC_SOLANA_EXPLORER_BASE_URL=https://explorer.solana.com
 - NEXT_PUBLIC_ENABLE_EMERGENCY_ACTIONS=false
@@ -49,7 +50,13 @@ Pour l'automatisation Vercel, ajouter aussi:
 - UPSTASH_REDIS_REST_TOKEN=<TOKEN_UPSTASH>
 - CRON_SECRET=<SECRET_CRON_VERCEL>
 - FAULTLINE_AUTOMATION_MAX_ACTIONS=25
-- FAULTLINE_AUTOMATION_HEARTBEAT_INTERVAL_MS=15000
+- FAULTLINE_AUTOMATION_HEARTBEAT_INTERVAL_MS=45000
+
+Notes RPC:
+
+- garder NEXT_PUBLIC_SOLANA_RPC_URL pour le wallet navigateur si besoin
+- utiliser FAULTLINE_SERVER_RPC_URL pour un endpoint dedie cote serveur afin d'eviter les 429 du RPC public devnet
+- le heartbeat navigateur ne tourne plus que sur les pages rooms et room, pas sur toute l'application
 
 ## Lancer l'application localement
 

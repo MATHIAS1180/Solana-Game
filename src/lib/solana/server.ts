@@ -4,6 +4,7 @@ import bs58 from "bs58";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 
 import { getFaultlineProgramId, getServerRpcEndpoint } from "@/lib/solana/cluster";
+import { buildTransactionErrorMessage, pollForSignatureConfirmation } from "@/lib/solana/transactions";
 
 let sharedConnection: Connection | null = null;
 let sharedRelayer: Keypair | null = null;
@@ -73,14 +74,16 @@ export async function sendRelayerTransaction(transaction: Transaction) {
     preflightCommitment: "confirmed"
   });
 
-  await connection.confirmTransaction(
-    {
-      signature,
-      blockhash: latestBlockhash.blockhash,
-      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-    },
-    "confirmed"
-  );
+  const confirmation = await pollForSignatureConfirmation({
+    connection,
+    signature,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    commitment: "confirmed"
+  });
+
+  if (confirmation.err) {
+    throw new Error(await buildTransactionErrorMessage(connection, signature, confirmation.err));
+  }
 
   return signature;
 }

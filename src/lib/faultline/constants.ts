@@ -132,7 +132,7 @@ export const DEFAULT_ROOM_PRESETS = [
   }
 ] as const;
 
-export const AUTOMATION_HEARTBEAT_INTERVAL_MS = 15_000;
+export const AUTOMATION_HEARTBEAT_INTERVAL_MS = 45_000;
 
 export function findDefaultRoomPreset(presetId: number) {
   return DEFAULT_ROOM_PRESETS.find((preset) => preset.id === presetId) ?? null;

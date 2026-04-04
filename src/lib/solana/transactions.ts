@@ -6,6 +6,71 @@ type SendTransaction = (
   options?: { skipPreflight?: boolean }
 ) => Promise<string>;
 
+function delay(milliseconds: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+function isCommitmentReached(confirmationStatus: string | undefined, commitment: "confirmed" | "finalized") {
+  if (!confirmationStatus) {
+    return false;
+  }
+
+  if (commitment === "confirmed") {
+    return confirmationStatus === "confirmed" || confirmationStatus === "finalized";
+  }
+
+  return confirmationStatus === "finalized";
+}
+
+export async function pollForSignatureConfirmation(args: {
+  connection: Connection;
+  signature: string;
+  lastValidBlockHeight: number;
+  commitment?: "confirmed" | "finalized";
+  pollIntervalMs?: number;
+}) {
+  const {
+    connection,
+    signature,
+    lastValidBlockHeight,
+    commitment = "confirmed",
+    pollIntervalMs = 1_000
+  } = args;
+
+  for (;;) {
+    const statuses = await connection.getSignatureStatuses([signature]);
+    const status = statuses.value[0];
+
+    if (status?.err) {
+      return { err: status.err };
+    }
+
+    if (isCommitmentReached(status?.confirmationStatus, commitment)) {
+      return { err: null };
+    }
+
+    const currentBlockHeight = await connection.getBlockHeight(commitment);
+    if (currentBlockHeight > lastValidBlockHeight) {
+      throw new Error(`Transaction expiree avant confirmation (${signature}).`);
+    }
+
+    await delay(pollIntervalMs);
+  }
+}
+
+export async function buildTransactionErrorMessage(connection: Connection, signature: string, err: unknown) {
+  const confirmedTransaction = await connection.getTransaction(signature, {
+    commitment: "confirmed",
+    maxSupportedTransactionVersion: 0
+  });
+  const logs = confirmedTransaction?.meta?.logMessages?.slice(-8).join(" | ");
+  const error = JSON.stringify(err);
+
+  return logs ? `Transaction echouee (${signature}): ${error}. Logs: ${logs}` : `Transaction echouee (${signature}): ${error}.`;
+}
+
 export async function sendAndConfirm(
   connection: Connection,
   sendTransaction: SendTransaction,
@@ -20,24 +85,15 @@ export async function sendAndConfirm(
     skipPreflight: false
   });
 
-  const confirmation = await connection.confirmTransaction(
-    {
-      signature,
-      blockhash: latestBlockhash.blockhash,
-      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-    },
-    "confirmed"
-  );
+  const confirmation = await pollForSignatureConfirmation({
+    connection,
+    signature,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    commitment: "confirmed"
+  });
 
-  if (confirmation.value.err) {
-    const confirmedTransaction = await connection.getTransaction(signature, {
-      commitment: "confirmed",
-      maxSupportedTransactionVersion: 0
-    });
-    const logs = confirmedTransaction?.meta?.logMessages?.slice(-8).join(" | ");
-    const error = JSON.stringify(confirmation.value.err);
-
-    throw new Error(logs ? `Transaction echouee (${signature}): ${error}. Logs: ${logs}` : `Transaction echouee (${signature}): ${error}.`);
+  if (confirmation.err) {
+    throw new Error(await buildTransactionErrorMessage(connection, signature, confirmation.err));
   }
 
   return signature;
