@@ -11,15 +11,25 @@ import { AUTOMATION_HEARTBEAT_INTERVAL_MS } from "@/lib/faultline/constants";
 import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 
-export function RoomsPage() {
-  const [rooms, setRooms] = useState<FaultlineRoomAccount[]>([]);
-  const [currentSlot, setCurrentSlot] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type RoomsPageProps = {
+  initialRooms?: SerializedFaultlineRoomAccount[];
+  initialCurrentSlot?: number;
+  initialError?: string | null;
+};
+
+export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError = null }: RoomsPageProps) {
+  const [rooms, setRooms] = useState<FaultlineRoomAccount[]>(() => initialRooms?.map(deserializeRoomAccount) ?? []);
+  const [currentSlot, setCurrentSlot] = useState(initialCurrentSlot);
+  const [loading, setLoading] = useState(!initialRooms && !initialError);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(initialError);
 
   async function refreshRooms() {
     try {
-      setLoading(true);
+      if (rooms.length === 0) {
+        setLoading(true);
+      }
+      setRefreshing(true);
       setError(null);
       const response = await fetch("/api/rooms", { cache: "no-store" });
       const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; rooms?: SerializedFaultlineRoomAccount[] };
@@ -34,11 +44,19 @@ export function RoomsPage() {
       setError(nextError instanceof Error ? nextError.message : "Chargement des rooms echoue.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
   useEffect(() => {
+    if (initialRooms || initialError) {
+      return;
+    }
+
     void refreshRooms();
+  }, [initialError, initialRooms]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       void refreshRooms();
     }, AUTOMATION_HEARTBEAT_INTERVAL_MS);
@@ -64,7 +82,7 @@ export function RoomsPage() {
               onClick={() => void refreshRooms()}
               className="inline-flex items-center gap-2 rounded-full border border-white/12 px-4 py-2 text-sm text-white/72 transition hover:border-white/30 hover:bg-white/5"
             >
-              <RefreshCw className="size-4" />
+              <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
               Rafraichir
             </button>
           </div>

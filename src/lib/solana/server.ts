@@ -3,7 +3,7 @@ import "server-only";
 import bs58 from "bs58";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 
-import { getFaultlineProgramId, getRpcEndpoint } from "@/lib/solana/cluster";
+import { getFaultlineProgramId, getServerRpcEndpoint } from "@/lib/solana/cluster";
 
 let sharedConnection: Connection | null = null;
 let sharedRelayer: Keypair | null = null;
@@ -32,7 +32,7 @@ export function getRelayerPublicKeyFromSecret(value: string) {
 
 export function getServerConnection() {
   if (!sharedConnection) {
-    sharedConnection = new Connection(getRpcEndpoint(), "confirmed");
+    sharedConnection = new Connection(getServerRpcEndpoint(), "confirmed");
   }
 
   return sharedConnection;

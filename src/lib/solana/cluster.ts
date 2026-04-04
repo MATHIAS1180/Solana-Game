@@ -8,6 +8,10 @@ export function getRpcEndpoint() {
   return process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl("devnet");
 }
 
+export function getServerRpcEndpoint() {
+  return process.env.FAULTLINE_SERVER_RPC_URL || getRpcEndpoint();
+}
+
 export function getFaultlineProgramId() {
   const value = process.env.NEXT_PUBLIC_FAULTLINE_PROGRAM_ID?.trim();
   if (!value) {

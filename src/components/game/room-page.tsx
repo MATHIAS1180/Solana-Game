@@ -16,11 +16,18 @@ import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/l
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { formatLamports, shortKey } from "@/lib/utils";
 
-export function RoomPage({ roomAddress }: { roomAddress: string }) {
+type RoomPageProps = {
+  roomAddress: string;
+  initialRoom?: SerializedFaultlineRoomAccount;
+  initialCurrentSlot?: number;
+  initialError?: string | null;
+};
+
+export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, initialError = null }: RoomPageProps) {
   const { publicKey } = useWallet();
-  const [room, setRoom] = useState<FaultlineRoomAccount | null>(null);
-  const [currentSlot, setCurrentSlot] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [room, setRoom] = useState<FaultlineRoomAccount | null>(() => (initialRoom ? deserializeRoomAccount(initialRoom) : null));
+  const [currentSlot, setCurrentSlot] = useState(initialCurrentSlot);
+  const [error, setError] = useState<string | null>(initialError);
 
   async function refreshRoom() {
     try {
@@ -40,7 +47,14 @@ export function RoomPage({ roomAddress }: { roomAddress: string }) {
   }
 
   useEffect(() => {
+    if (initialRoom || initialError) {
+      return;
+    }
+
     void refreshRoom();
+  }, [initialError, initialRoom, roomAddress]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       void refreshRoom();
     }, AUTOMATION_HEARTBEAT_INTERVAL_MS);
