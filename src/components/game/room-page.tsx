@@ -2,21 +2,21 @@
 
 import { useEffect, useState } from "react";
 
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Clock3, Users } from "lucide-react";
 
 import { PhaseBadge } from "@/components/game/phase-badge";
 import { ProgramBanner } from "@/components/game/program-banner";
 import { ResultPanel } from "@/components/game/result-panel";
 import { RoomActions } from "@/components/game/room-actions";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS } from "@/lib/faultline/constants";
 import { PLAYER_STATUS_LABELS, RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
-import { fetchRoom, findPlayerIndex } from "@/lib/faultline/rooms";
+import { findPlayerIndex } from "@/lib/faultline/rooms";
+import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { formatLamports, shortKey } from "@/lib/utils";
 
 export function RoomPage({ roomAddress }: { roomAddress: string }) {
-  const { connection } = useConnection();
   const { publicKey } = useWallet();
   const [room, setRoom] = useState<FaultlineRoomAccount | null>(null);
   const [currentSlot, setCurrentSlot] = useState(0);
@@ -24,11 +24,16 @@ export function RoomPage({ roomAddress }: { roomAddress: string }) {
 
   async function refreshRoom() {
     try {
-      const roomKey = new PublicKey(roomAddress);
-      const [nextRoom, slot] = await Promise.all([fetchRoom(connection, roomKey), connection.getSlot("confirmed")]);
-      setCurrentSlot(slot);
-      setRoom(nextRoom);
-      setError(nextRoom ? null : "Room introuvable pour cette adresse.");
+      const response = await fetch(`/api/rooms/${roomAddress}`, { cache: "no-store" });
+      const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; room?: SerializedFaultlineRoomAccount };
+
+      if (!response.ok || !payload.ok || !payload.room || payload.currentSlot === undefined) {
+        throw new Error(payload.error || "Lecture de room impossible.");
+      }
+
+      setCurrentSlot(payload.currentSlot);
+      setRoom(deserializeRoomAccount(payload.room));
+      setError(null);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Lecture de room impossible.");
     }
@@ -38,10 +43,10 @@ export function RoomPage({ roomAddress }: { roomAddress: string }) {
     void refreshRoom();
     const interval = window.setInterval(() => {
       void refreshRoom();
-    }, 10_000);
+    }, AUTOMATION_HEARTBEAT_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
-  }, [connection, roomAddress]);
+  }, [roomAddress]);
 
   if (error) {
     return (

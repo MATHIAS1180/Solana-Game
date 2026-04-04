@@ -2,38 +2,34 @@
 
 import { useEffect, useState } from "react";
 
-import { useConnection } from "@solana/wallet-adapter-react";
 import { RefreshCw } from "lucide-react";
 
 import { ProgramBanner } from "@/components/game/program-banner";
 import { CreateRoomForm } from "@/components/rooms/create-room-form";
 import { RoomCard } from "@/components/rooms/room-card";
-import { matchesDefaultRoomPreset } from "@/lib/faultline/constants";
-import { fetchRooms } from "@/lib/faultline/rooms";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS } from "@/lib/faultline/constants";
+import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
-import { getFaultlineProgramId } from "@/lib/solana/cluster";
 
 export function RoomsPage() {
-  const { connection } = useConnection();
   const [rooms, setRooms] = useState<FaultlineRoomAccount[]>([]);
   const [currentSlot, setCurrentSlot] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const programId = getFaultlineProgramId();
 
   async function refreshRooms() {
-    if (!programId) {
-      setError("NEXT_PUBLIC_FAULTLINE_PROGRAM_ID est requis pour charger les rooms.");
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
-      const [nextRooms, slot] = await Promise.all([fetchRooms(connection, programId), connection.getSlot("confirmed")]);
-      setCurrentSlot(slot);
-      setRooms(nextRooms.filter((room) => matchesDefaultRoomPreset(room)).sort((left, right) => Number(left.stakeLamports - right.stakeLamports)));
+      const response = await fetch("/api/rooms", { cache: "no-store" });
+      const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; rooms?: SerializedFaultlineRoomAccount[] };
+
+      if (!response.ok || !payload.ok || !payload.rooms || payload.currentSlot === undefined) {
+        throw new Error(payload.error || "Chargement des rooms echoue.");
+      }
+
+      setCurrentSlot(payload.currentSlot);
+      setRooms(payload.rooms.map(deserializeRoomAccount));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Chargement des rooms echoue.");
     } finally {
@@ -45,10 +41,10 @@ export function RoomsPage() {
     void refreshRooms();
     const interval = window.setInterval(() => {
       void refreshRooms();
-    }, 15_000);
+    }, AUTOMATION_HEARTBEAT_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
-  }, [connection, programId]);
+  }, []);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
