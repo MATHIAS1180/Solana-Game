@@ -1,7 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { describe, expect, it } from "vitest";
 
-import { PLAYER_STATUS, ROOM_STATE_SIZE, ROOM_STATUS } from "@/lib/faultline/constants";
+import { MAX_PLAYERS, PLAYER_STATUS, ROOM_STATE_SIZE, ROOM_STATUS } from "@/lib/faultline/constants";
 import { decodeRoomAccount } from "@/lib/faultline/layout";
 
 class ByteWriter {
@@ -89,34 +89,34 @@ describe("faultline layout", () => {
     writer.writeU16(800);
     writer.writeU16(0);
 
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeBytes(index === 0 ? playerOne : index === 1 ? playerTwo : new Uint8Array(32));
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeU8(index === 0 ? PLAYER_STATUS.Revealed : index === 1 ? PLAYER_STATUS.Committed : PLAYER_STATUS.Empty);
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeU8(index === 0 ? 1 : 0);
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeU8(index === 0 ? 2 : 0);
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeU8(index === 0 ? 1 : 0);
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeBytes(index === 0 ? new Uint8Array(32).fill(7) : new Uint8Array(32));
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeBytes(index === 0 ? Uint8Array.from([1, 1, 1, 1, 1]) : new Uint8Array(5));
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeU16(index === 0 ? 4 : 0);
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeU32(index === 0 ? 170_500 : 0);
     }
-    for (let index = 0; index < 128; index += 1) {
+    for (let index = 0; index < MAX_PLAYERS; index += 1) {
       writer.writeU64(index === 0 ? 72_000_000n : 0n);
     }
 
