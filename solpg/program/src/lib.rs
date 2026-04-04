@@ -313,6 +313,7 @@ pub fn process_instruction(
     }
 }
 
+#[inline(never)]
 fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
     let mut input = input;
     let mut iter = accounts.iter();
@@ -911,6 +912,7 @@ fn require_system_program(account: &AccountInfo) -> ProgramResult {
     Ok(())
 }
 
+#[inline(never)]
 fn create_pda_account<'a>(
     payer: &AccountInfo<'a>,
     account: &AccountInfo<'a>,
@@ -964,6 +966,7 @@ fn verify_treasury(treasury_ai: &AccountInfo, room: &RoomState) -> ProgramResult
     Ok(())
 }
 
+#[inline(never)]
 fn write_room_state_init(
     account: &AccountInfo,
     room_bump: u8,
