@@ -21,14 +21,14 @@ const VAULT_SEED_PREFIX: &[u8] = b"vault";
 const PROFILE_SEED_PREFIX: &[u8] = b"profile";
 const RESERVE_SEED_PREFIX: &[u8] = b"reserve";
 const COMMIT_DOMAIN: &[u8] = b"FAULTLINE_COMMIT_V1";
-const MAX_PLAYERS: usize = 16;
+const MAX_PLAYERS: usize = 12;
 const ZONE_COUNT: usize = 5;
 const MAX_WINNERS: usize = 4;
 const RESERVE_FEE_BPS: u64 = 200;
 const TREASURY_PUBKEY: Pubkey = pubkey!("12dZBGCWRKtLnZVSc1Nxa2uUnvrbjCwpkkbbwHiybHoQ");
 const EMPTY_KEY: [u8; 32] = [0u8; 32];
 
-const ROOM_STATE_SIZE: usize = 1679;
+const ROOM_STATE_SIZE: usize = 1331;
 const PROFILE_STATE_SIZE: usize = 136;
 const RESERVE_STATE_SIZE: usize = 76;
 

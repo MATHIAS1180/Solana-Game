@@ -1,5 +1,5 @@
 export const FAULTLINE_COMMIT_DOMAIN = "FAULTLINE_COMMIT_V1";
-export const MAX_PLAYERS = 16;
+export const MAX_PLAYERS = 12;
 export const MAX_WINNERS = 4;
 export const ZONE_COUNT = 5;
 export const RESERVE_FEE_BPS = 200;
@@ -37,7 +37,7 @@ export const ZONE_LABELS = ["A", "B", "C", "D", "E"] as const;
 export const RISK_MULTIPLIERS_BPS = [10000, 15500, 24000] as const;
 export const RISK_FAIL_MULTIPLIERS_BPS = [10000, 2500, 0] as const;
 
-export const ROOM_STATE_SIZE = 1679;
+export const ROOM_STATE_SIZE = 1331;
 export const PROFILE_STATE_SIZE = 136;
 export const RESERVE_STATE_SIZE = 76;
 
