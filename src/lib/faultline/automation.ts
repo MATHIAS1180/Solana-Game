@@ -64,8 +64,15 @@ function buildSystemRoomSeed(presetId: number, slot: number) {
   return createHash("sha256").update(`faultline-system-room:${presetId}:${slot}`).digest().subarray(0, 32);
 }
 
-function hasOpenSystemRoom(rooms: FaultlineRoomAccount[], presetId: number) {
-  return rooms.some((room) => room.status === ROOM_STATUS.Open && room.presetId === presetId && matchesDefaultRoomPreset(room));
+function hasJoinableSystemRoom(rooms: FaultlineRoomAccount[], presetId: number, currentSlot: number) {
+  return rooms.some(
+    (room) =>
+      room.status === ROOM_STATUS.Open &&
+      room.presetId === presetId &&
+      matchesDefaultRoomPreset(room) &&
+      currentSlot <= Number(room.joinDeadlineSlot) &&
+      room.playerCount < room.maxPlayers
+  );
 }
 
 async function ensureSystemRooms(args: {
@@ -80,7 +87,7 @@ async function ensureSystemRooms(args: {
   const slot = await connection.getSlot("confirmed");
 
   for (const preset of DEFAULT_ROOM_PRESETS) {
-    if (summary.transactionCount >= maxActions || hasOpenSystemRoom(rooms, preset.id)) {
+    if (summary.transactionCount >= maxActions || hasJoinableSystemRoom(rooms, preset.id, slot)) {
       continue;
     }
 
