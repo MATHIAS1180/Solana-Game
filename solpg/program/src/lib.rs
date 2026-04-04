@@ -395,7 +395,8 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
     }
 
     let slot = Clock::get()?.slot;
-    let room = RoomState::new(
+    write_room_state_init(
+        room_state_ai,
         room_bump,
         vault_bump,
         creator.key,
@@ -410,8 +411,7 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
         slot.checked_add(join_window_slots).ok_or(FaultlineError::ArithmeticOverflow)?,
         commit_window_slots,
         reveal_window_slots,
-    );
-    store_state(&room, room_state_ai)?;
+    )?;
     msg!("RoomInitialized");
     Ok(())
 }
@@ -961,6 +961,96 @@ fn verify_treasury(treasury_ai: &AccountInfo, room: &RoomState) -> ProgramResult
     if treasury_ai.key.to_bytes() != room.treasury || *treasury_ai.key != TREASURY_PUBKEY {
         return Err(FaultlineError::InvalidPda.into());
     }
+    Ok(())
+}
+
+fn write_room_state_init(
+    account: &AccountInfo,
+    room_bump: u8,
+    vault_bump: u8,
+    creator: &Pubkey,
+    vault: &Pubkey,
+    reserve: &Pubkey,
+    room_seed: [u8; 32],
+    stake_lamports: u64,
+    min_players: u8,
+    max_players: u8,
+    preset_id: u8,
+    created_slot: u64,
+    join_deadline_slot: u64,
+    commit_duration_slots: u64,
+    reveal_duration_slots: u64,
+) -> ProgramResult {
+    let (winner_count, payout_bps) = get_payout_ladder(max_players as usize);
+    let mut data = account.try_borrow_mut_data()?;
+    data.fill(0);
+
+    let mut offset = 0usize;
+    write_u8(&mut data, &mut offset, 1)?;
+    write_u8(&mut data, &mut offset, room_bump)?;
+    write_u8(&mut data, &mut offset, vault_bump)?;
+    write_u8(&mut data, &mut offset, ROOM_OPEN)?;
+    write_u8(&mut data, &mut offset, ZONE_COUNT as u8)?;
+    write_u8(&mut data, &mut offset, min_players)?;
+    write_u8(&mut data, &mut offset, max_players)?;
+    write_u8(&mut data, &mut offset, 0)?;
+    write_u8(&mut data, &mut offset, 0)?;
+    write_u8(&mut data, &mut offset, 0)?;
+    write_u8(&mut data, &mut offset, 0)?;
+    write_u8(&mut data, &mut offset, winner_count)?;
+    write_u8(&mut data, &mut offset, preset_id)?;
+    write_u8(&mut data, &mut offset, 0)?;
+    write_u64(&mut data, &mut offset, stake_lamports)?;
+    write_u64(&mut data, &mut offset, 0)?;
+    write_u64(&mut data, &mut offset, 0)?;
+    write_u64(&mut data, &mut offset, 0)?;
+    write_u64(&mut data, &mut offset, 0)?;
+    write_u64(&mut data, &mut offset, created_slot)?;
+    write_u64(&mut data, &mut offset, join_deadline_slot)?;
+    write_u64(&mut data, &mut offset, commit_duration_slots)?;
+    write_u64(&mut data, &mut offset, 0)?;
+    write_u64(&mut data, &mut offset, reveal_duration_slots)?;
+    write_u64(&mut data, &mut offset, 0)?;
+    write_u64(&mut data, &mut offset, 0)?;
+    write_bytes(&mut data, &mut offset, &creator.to_bytes())?;
+    write_bytes(&mut data, &mut offset, &vault.to_bytes())?;
+    write_bytes(&mut data, &mut offset, &reserve.to_bytes())?;
+    write_bytes(&mut data, &mut offset, &TREASURY_PUBKEY.to_bytes())?;
+    write_bytes(&mut data, &mut offset, &room_seed)?;
+    write_bytes(&mut data, &mut offset, &[0; 5])?;
+    write_bytes(&mut data, &mut offset, &[u8::MAX; 4])?;
+    for payout in payout_bps {
+        write_u16(&mut data, &mut offset, payout)?;
+    }
+
+    if offset > ROOM_STATE_SIZE {
+        return Err(FaultlineError::InvalidRoomState.into());
+    }
+
+    Ok(())
+}
+
+fn write_u8(data: &mut [u8], offset: &mut usize, value: u8) -> ProgramResult {
+    write_bytes(data, offset, &[value])
+}
+
+fn write_u16(data: &mut [u8], offset: &mut usize, value: u16) -> ProgramResult {
+    write_bytes(data, offset, &value.to_le_bytes())
+}
+
+fn write_u64(data: &mut [u8], offset: &mut usize, value: u64) -> ProgramResult {
+    write_bytes(data, offset, &value.to_le_bytes())
+}
+
+fn write_bytes(data: &mut [u8], offset: &mut usize, value: &[u8]) -> ProgramResult {
+    let end = offset
+        .checked_add(value.len())
+        .ok_or(FaultlineError::ArithmeticOverflow)?;
+    if end > data.len() {
+        return Err(FaultlineError::InvalidRoomState.into());
+    }
+    data[*offset..end].copy_from_slice(value);
+    *offset = end;
     Ok(())
 }
 
