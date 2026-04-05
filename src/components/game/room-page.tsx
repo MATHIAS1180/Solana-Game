@@ -194,7 +194,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="arena-kicker">System Lobby</p>
-              <h1 className="mt-3 font-display text-4xl text-white">{preset.name} is ready to be initialized</h1>
+              <h1 className="mt-3 font-display text-3xl text-white sm:text-4xl">{preset.name} is ready to be initialized</h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">
                 No active room account exists for this preset yet. The first gameplay transaction creates the room if needed, then joins and commits within the same wallet flow.
               </p>
@@ -252,7 +252,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="arena-kicker">Room Detail</p>
-            <h1 className="mt-3 font-display text-4xl text-white">
+            <h1 className="mt-3 font-display text-3xl text-white sm:text-4xl">
               {preset ? `${preset.name} Arena` : "Faultline Arena Room"} {shortKey(room.publicKey, 6)}
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">
@@ -324,6 +324,13 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
             )}
           </div>
         </div>
+
+        <div className="mt-4 rounded-[1.6rem] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/68">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Why players stay</p>
+          <p className="mt-3">
+            This room is compelling because it creates visible social tension. You commit privately, watch other seats fill, then learn exactly how close your read was once the reveal histogram lands.
+          </p>
+        </div>
       </section>
 
       <section className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
@@ -346,7 +353,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
                     publicKey && room.playerKeys[index].equals(publicKey) && "border-fault-signal/35 bg-fault-signal/6"
                   )}
                 >
-                  <p className="text-sm text-white">{shortKey(room.playerKeys[index], 6)}</p>
+                  <p className="break-all text-sm text-white">{shortKey(room.playerKeys[index], 6)}</p>
                   <p className="text-sm text-white/70">{PLAYER_STATUS_LABELS[room.playerStatuses[index]]}</p>
                   <p className="text-sm text-white/70">{room.playerStatuses[index] === 3 ? `Zone ${ZONE_LABELS[room.playerZones[index]]}` : "Hidden"}</p>
                   <p className="text-sm text-white/70">{room.playerStatuses[index] === 3 ? RISK_LABELS[room.playerRisks[index]] : "Waiting for reveal"}</p>

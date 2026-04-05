@@ -118,7 +118,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
               <button
                 type="button"
                 onClick={() => void refreshRooms()}
-                className="arena-secondary inline-flex items-center justify-center gap-2 self-start px-5 py-3 text-sm uppercase tracking-[0.18em] text-white/82"
+                className="arena-secondary inline-flex w-full items-center justify-center gap-2 self-start px-5 py-3 text-sm uppercase tracking-[0.18em] text-white/82 sm:w-auto"
               >
                 <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
                 Refresh board

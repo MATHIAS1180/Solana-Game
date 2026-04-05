@@ -68,8 +68,8 @@ export function RevealPanel({
       await deleteStoredCommitPayload(room.publicKey.toBase58(), publicKey.toBase58());
       toast({
         tone: "success",
-        title: "Reveal submitted",
-        description: "The revealed payload matched the stored commit and was sent to Solana."
+        title: "Reveal confirmed",
+        description: "Your hidden read matched the stored commit and is now part of the live room outcome."
       });
       await onRevealed();
     } catch (error) {
@@ -91,7 +91,7 @@ export function RevealPanel({
           Reveal unavailable
         </div>
         <p className="mt-4 text-sm leading-7 text-white/70">
-          The committed payload was not found locally for this wallet and room. Without the original nonce and forecast, manual reveal is impossible.
+          The committed payload was not found locally for this wallet and room. Without the original nonce and forecast, this seat cannot prove what it locked earlier.
         </p>
       </div>
     );
@@ -102,7 +102,10 @@ export function RevealPanel({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="arena-kicker">Reveal Step</p>
-          <h2 className="mt-3 font-display text-2xl text-white">Replay the exact payload that was committed.</h2>
+          <h2 className="mt-3 font-display text-2xl text-white">Open the sealed read and let the room score it.</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68">
+            Reveal must replay the exact hidden payload. Any mismatch breaks the proof, so this step is binary: exact or invalid.
+          </p>
         </div>
         <Eye className="size-5 text-fault-flare" />
       </div>
@@ -129,7 +132,7 @@ export function RevealPanel({
         className="arena-secondary mt-6 inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
       >
         {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Eye className="size-4" />}
-        Submit reveal
+        Reveal exact read
       </button>
     </div>
   );

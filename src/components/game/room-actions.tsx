@@ -92,12 +92,12 @@ export function RoomActions({
       (room.status === ROOM_STATUS.Commit && room.committedCount === room.playerCount));
   const availableActions = [canCancel, canForceTimeout, canResolve, isJoined && reward > 0n && !claimed && isSettledRoom].filter(Boolean).length;
   const nextWindowLabel = canCancel
-    ? "Join window expired below the minimum players threshold."
+    ? "Join window expired below the minimum threshold. Anyone can cancel now and push refunds back to players."
     : canForceTimeout
-      ? "A deadline expired and the room can be advanced right now."
+      ? "A deadline expired. The next actor can force the room forward immediately instead of waiting on absent players."
       : canResolve
-        ? "All required inputs are in, so the room can be resolved permissionlessly."
-        : "Waiting for the next gameplay event or deadline to unlock an action.";
+        ? "The room has enough information to score the outcome. Resolution is open to anyone."
+        : "No forced action is open yet. The next unlock comes from a fresh commit, a reveal, or an expired timer.";
   async function execute(label: string, builder: () => Promise<Transaction>) {
     if (!programId || !publicKey || !sendTransaction) {
       toast({
@@ -116,7 +116,7 @@ export function RoomActions({
       toast({
         tone: "success",
         title: `${label} confirmed`,
-        description: "The room state has been updated from confirmed Solana data."
+        description: "The room state has been refreshed from confirmed Solana data."
       });
     } catch (error) {
       toast({
@@ -135,7 +135,10 @@ export function RoomActions({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="arena-kicker">Room Actions</p>
-            <h2 className="mt-3 font-display text-2xl text-white">Advance, settle, or harvest the room without admin privileges.</h2>
+            <h2 className="mt-3 font-display text-2xl text-white">Advance, settle, or collect without waiting for an operator.</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68">
+              Faultline rooms are built to keep moving. If a deadline expires, any participant or spectator can push the state machine ahead.
+            </p>
           </div>
           <div className="rounded-full border border-white/10 bg-black/25 px-4 py-2 text-sm text-white/68">
             Network slot {currentSlot}
@@ -156,13 +159,14 @@ export function RoomActions({
                 </span>
               ) : null}
             </div>
+            <p className="mt-4 font-mono text-xs uppercase tracking-[0.22em] text-white/45">What matters now</p>
             <p className="mt-4 text-sm leading-7 text-white/68">{nextWindowLabel}</p>
           </div>
 
           <div className="arena-surface rounded-[1.5rem] p-4 text-sm text-white/68">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Permissionless model</p>
             <p className="mt-3 leading-7">
-              Anyone can move expired rooms forward. The flow stays trust-minimized even if the original players leave the page.
+              Anyone can move expired rooms forward. That keeps payout, refunds, and resolution trust-minimized even when original players disappear.
             </p>
           </div>
         </div>
@@ -242,15 +246,15 @@ export function RoomActions({
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           <div className="arena-stat arena-fade-in rounded-2xl p-4 text-sm text-white/72">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Join deadline</p>
-            <p className="mt-2 text-white">{room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 ? "starts with the next entrant" : formatCountdown(Number(room.joinDeadlineSlot) - currentSlot)}</p>
+            <p className="mt-2 text-white">{room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 ? "opens with the next entrant" : formatCountdown(Number(room.joinDeadlineSlot) - currentSlot)}</p>
           </div>
           <div className="arena-stat arena-fade-in arena-delay-1 rounded-2xl p-4 text-sm text-white/72">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit deadline</p>
-            <p className="mt-2 text-white">{Number(room.commitDeadlineSlot) > 0 ? formatCountdown(Number(room.commitDeadlineSlot) - currentSlot) : "waiting"}</p>
+            <p className="mt-2 text-white">{Number(room.commitDeadlineSlot) > 0 ? formatCountdown(Number(room.commitDeadlineSlot) - currentSlot) : "not started"}</p>
           </div>
           <div className="arena-stat arena-fade-in arena-delay-2 rounded-2xl p-4 text-sm text-white/72">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reveal deadline</p>
-            <p className="mt-2 text-white">{Number(room.revealDeadlineSlot) > 0 ? formatCountdown(Number(room.revealDeadlineSlot) - currentSlot) : "waiting"}</p>
+            <p className="mt-2 text-white">{Number(room.revealDeadlineSlot) > 0 ? formatCountdown(Number(room.revealDeadlineSlot) - currentSlot) : "not started"}</p>
           </div>
         </div>
       </div>

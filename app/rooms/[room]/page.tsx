@@ -10,7 +10,20 @@ export async function generateMetadata({ params }: { params: Promise<{ room: str
 
   return {
     title: `Room ${room.slice(0, 6)}...${room.slice(-4)}`,
-    description: "Track a live Faultline Arena room on Solana, monitor commit and reveal phases, and enter the arena with a single wallet transaction."
+    description: "Track a live Faultline Arena room on Solana, monitor commit and reveal phases, and enter the arena with a single wallet transaction.",
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true
+      }
+    },
+    openGraph: {
+      title: `Faultline Arena Room ${room.slice(0, 6)}...${room.slice(-4)}`,
+      description: "Live Solana room telemetry for Faultline Arena: commits, reveals, room actions, and settlement state.",
+      url: `/rooms/${room}`
+    }
   };
 }
 

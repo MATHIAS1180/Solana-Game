@@ -178,8 +178,8 @@ export function CommitComposer({
       await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
       toast({
         tone: "success",
-        title: !latestRoom ? "Room initialized and committed" : latestPlayerIndex === -1 ? "Joined and committed" : "Commit locked",
-        description: `Payload saved locally for manual reveal on ${shortKey(room.publicKey)}.`
+        title: !latestRoom ? "Room opened and read locked" : latestPlayerIndex === -1 ? "Seat claimed and read locked" : "Read locked",
+        description: `Your reveal key was saved locally for ${shortKey(room.publicKey)}. You will need this browser state during reveal.`
       });
       await onCommitted();
     } catch (error) {
@@ -188,7 +188,7 @@ export function CommitComposer({
         title: error instanceof Error && error.message.includes("Database") ? "Local storage unavailable" : "Commit failed",
         description:
           error instanceof Error && error.message.includes("Database")
-            ? "IndexedDB is unavailable, so the reveal payload cannot be stored for later. Enable browser storage before committing."
+            ? "IndexedDB is unavailable, so the reveal payload cannot be preserved for the reveal phase. Enable browser storage before entering the room."
             : error instanceof Error
               ? error.message
               : "The commit transaction could not be completed."
@@ -203,7 +203,10 @@ export function CommitComposer({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="arena-kicker">Commit Composer</p>
-          <h2 className="mt-3 font-display text-2xl text-white">Lock your crowd read before anyone sees it.</h2>
+          <h2 className="mt-3 font-display text-2xl text-white">Lock your crowd read before the room reveals its shape.</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68">
+            You are not choosing a personal move. You are pricing the behavior of everyone else, then hiding that read until reveal.
+          </p>
         </div>
         <Lock className="size-5 text-fault-flare" />
       </div>
@@ -211,6 +214,7 @@ export function CommitComposer({
       <div className="mt-6 space-y-5">
         <div>
           <p className="text-sm text-white/70">Target zone</p>
+          <p className="mt-2 text-sm leading-6 text-white/52">Pick the zone you believe will finish with the best crowd imbalance once all reveals are in.</p>
           <div className="mt-3 grid grid-cols-5 gap-2">
             {ZONE_LABELS.map((label, index) => (
               <button
@@ -227,6 +231,7 @@ export function CommitComposer({
 
         <div>
           <p className="text-sm text-white/70">Risk band</p>
+          <p className="mt-2 text-sm leading-6 text-white/52">Higher bands pay for precision. Lower bands survive broader player traffic.</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             {RISK_LABELS.map((label, index) => (
               <button
@@ -237,7 +242,7 @@ export function CommitComposer({
               >
                 <span className="font-display text-lg">{label}</span>
                 <span className="mt-2 block text-xs uppercase tracking-[0.22em] text-white/48">
-                  {index === 0 ? "Always eligible" : index === 1 ? "Top 2 least crowded" : "Absolute least crowded"}
+                  {index === 0 ? "Stays live across wider outcomes" : index === 1 ? "Wins by reading lighter pockets" : "Only wins on the cleanest lane"}
                 </span>
               </button>
             ))}
@@ -249,6 +254,7 @@ export function CommitComposer({
             <p>Forecast vector</p>
             <p className={validation.valid ? "text-emerald-200" : "text-fault-flare"}>Total {validation.total}</p>
           </div>
+          <p className="mt-2 text-sm leading-6 text-white/52">Model how many total players you expect in each zone at resolution. Your error is measured against this final histogram.</p>
           <div className="mt-3 grid grid-cols-5 gap-2">
             {forecast.map((value, index) => (
               <label key={index} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center text-white/75">
@@ -273,7 +279,7 @@ export function CommitComposer({
         <div className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/70">
           <p className="inline-flex items-center gap-2 text-fault-flare">
             <ShieldAlert className="size-4" />
-            The nonce and clear payload are stored locally before send. Without that storage, manual reveal is impossible.
+            The nonce and clear payload are stored locally before send. Lose this browser state and your manual reveal path is gone.
           </p>
         </div>
 
@@ -284,7 +290,7 @@ export function CommitComposer({
           className="arena-primary inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Lock className="size-4" />}
-          {isJoined ? "Submit commit" : "Join and commit"}
+          {isJoined ? "Lock prediction" : "Enter and lock read"}
         </button>
       </div>
     </div>

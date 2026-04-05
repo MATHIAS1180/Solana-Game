@@ -23,13 +23,20 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const metadataBase = new URL(siteUrl || "http://localhost:3000");
 
 export const metadata: Metadata = {
-  metadataBase: siteUrl ? new URL(siteUrl) : undefined,
+  metadataBase,
+  applicationName: "Faultline Arena",
   title: {
     default: "Faultline Arena | Solana PvP Strategy Game",
     template: "%s | Faultline Arena"
   },
+  alternates: siteUrl
+    ? {
+        canonical: "/"
+      }
+    : undefined,
   description:
     "Faultline Arena is a live Solana PvP strategy game where players predict crowd movement, lock a private commit, reveal the exact read later, and compete in deterministic on-chain rankings.",
   keywords: [
@@ -55,6 +62,17 @@ export const metadata: Metadata = {
     title: "Faultline Arena | Solana PvP Strategy Game",
     description:
       "A live Solana strategy game built around one-transaction entry, commit-reveal scoring, and deterministic PvP crowd forecasting."
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1
+    }
   },
   category: "games"
 };

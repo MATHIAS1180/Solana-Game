@@ -16,9 +16,9 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
     return (
       <div className="fault-card rounded-[1.75rem] p-6">
         <p className="arena-kicker">Round Cancelled</p>
-        <h2 className="mt-3 font-display text-2xl text-white">This room did not reach a playable finish.</h2>
+        <h2 className="mt-3 font-display text-2xl text-white">This room never reached a valid scoring state.</h2>
         <p className="mt-4 text-sm leading-7 text-white/72">
-          Refunds are reflected at the player level. Commit no-shows can still incur the anti-grief retention described in the whitepaper.
+          Refunds are tracked per player. Seats that failed the commit or reveal obligations can still absorb the anti-grief retention defined in the whitepaper.
         </p>
       </div>
     );
@@ -35,7 +35,10 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="arena-kicker">Result Analytics</p>
-          <h2 className="mt-3 font-display text-3xl text-white">Why this room resolved the way it did.</h2>
+          <h2 className="mt-3 font-display text-3xl text-white">See how the crowd actually formed and why this read won.</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-white/68">
+            Faultline scores the accuracy of each hidden forecast against the revealed population map, then applies risk-band rules to separate sharp reads from safer ones.
+          </p>
         </div>
         <Trophy className="size-5 text-fault-flare" />
       </div>
@@ -69,10 +72,10 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
             <div className="arena-surface rounded-3xl p-5 text-sm leading-7 text-white/72">
               <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Your finish</p>
               <p className="mt-3 text-white">Rank #{rank + 1}</p>
-              <p>Zone {ZONE_LABELS[player.zone]} / {RISK_LABELS[player.riskBand]}</p>
-              <p>Absolute error: {player.error}</p>
+              <p>Read: zone {ZONE_LABELS[player.zone]} / {RISK_LABELS[player.riskBand]}</p>
+              <p>Forecast miss: {player.error}</p>
               <p>Score: {player.scoreBps}</p>
-              <p>Reward: {formatLamports(room.playerRewardsLamports[player.index])}</p>
+              <p>Payout: {formatLamports(room.playerRewardsLamports[player.index])}</p>
               <p className="mt-3 text-fault-flare">{describeNearMiss(player.riskBand, player.zone, histogram)}</p>
             </div>
           ) : null}
@@ -92,18 +95,18 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
                 </span>
               </div>
               <p className="mt-4 text-white">
-                {shortKey(room.playerKeys[winner.index], 6)} wins with a score of {winner.scoreBps}, an error of {winner.error}, zone {ZONE_LABELS[winner.zone]}, and risk band {RISK_LABELS[winner.riskBand]}.
+                {shortKey(room.playerKeys[winner.index], 6)} wins with the cleanest priced read: score {winner.scoreBps}, miss {winner.error}, zone {ZONE_LABELS[winner.zone]}, risk band {RISK_LABELS[winner.riskBand]}.
               </p>
               {player && player.index !== winner.index ? (
                 <p className="mt-3">
-                  Main delta versus your entry: {winner.error < player.error ? `the winner matched the final histogram more closely (${winner.error} versus ${player.error})` : `the tiebreak favored a less congested final zone`}.
+                  Main delta versus your entry: {winner.error < player.error ? `the winner matched the final histogram more tightly (${winner.error} versus ${player.error})` : `the tiebreak leaned toward a cleaner final zone with less crowding pressure`}.
                 </p>
               ) : null}
             </div>
           ) : null}
 
           <div className="arena-surface rounded-3xl p-5">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Final ranking</p>
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Top reads</p>
             <div className="mt-4 space-y-3">
               {scoredPlayers.slice(0, 8).map((entry, index) => (
                 <div

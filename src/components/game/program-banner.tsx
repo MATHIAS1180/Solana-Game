@@ -27,7 +27,7 @@ export function ProgramBanner() {
           <div className="flex flex-wrap items-center gap-3">
             <Link href="/" className="inline-flex items-center gap-3">
               <span className="arena-live-dot" />
-              <span className="font-display text-2xl uppercase tracking-[0.18em] text-white">Faultline Arena</span>
+              <span className="font-display text-xl uppercase tracking-[0.14em] text-white sm:text-2xl sm:tracking-[0.18em]">Faultline Arena</span>
             </Link>
             <span className="arena-kicker border-fault-signal/20 text-fault-signal">
               <Orbit className="size-4" />
@@ -60,10 +60,10 @@ export function ProgramBanner() {
         </div>
 
         <div className="flex flex-col gap-4 xl:items-end">
-          <div className="space-y-2 rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/68">
+          <div className="w-full space-y-2 rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/68 xl:w-auto xl:min-w-[22rem]">
             <p>
               <span className="font-mono uppercase tracking-[0.22em] text-white/42">RPC</span>{" "}
-              <span className="font-mono text-white/86">{rpcEndpoint}</span>
+              <span className="break-all font-mono text-white/86">{rpcEndpoint}</span>
             </p>
             <p>
               <span className="font-mono uppercase tracking-[0.22em] text-white/42">Program</span>{" "}
@@ -84,7 +84,7 @@ export function ProgramBanner() {
               Live wallet game
             </span>
 
-            <WalletMultiButton className="!h-auto !rounded-full !bg-fault-ember !px-5 !py-3 !font-display !text-sm !font-semibold !uppercase !tracking-[0.2em] !text-fault-basalt" />
+            <WalletMultiButton className="!h-auto !w-full !rounded-full !bg-fault-ember !px-5 !py-3 !font-display !text-sm !font-semibold !uppercase !tracking-[0.2em] !text-fault-basalt sm:!w-auto" />
           </div>
         </div>
       </div>

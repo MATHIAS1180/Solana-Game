@@ -49,6 +49,16 @@ export function RoomCard({
           : room.status === ROOM_STATUS.Commit
             ? formatCountdown(commitRemaining)
             : formatCountdown(revealRemaining);
+  const occupancyRatio = room ? Math.max(0, Math.min(100, (room.playerCount / room.maxPlayers) * 100)) : 0;
+  const seatsLeft = room ? Math.max(room.maxPlayers - room.playerCount, 0) : preset.maxPlayers;
+  const momentumLabel =
+    !room || room.playerCount === 0
+      ? "fresh lobby"
+      : canJoinRoom
+        ? `${seatsLeft} seat${seatsLeft === 1 ? "" : "s"} left`
+        : room.status === ROOM_STATUS.Commit
+          ? "commits are live"
+          : "reveal pressure building";
 
   async function openRoom() {
     try {
@@ -109,6 +119,16 @@ export function RoomCard({
         {room ? `Commit ${room.committedCount}/${room.playerCount} | Reveal ${room.revealedCount}/${room.committedCount}` : "The first entrant initializes the room account"}
       </div>
 
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
+          <span>Room momentum</span>
+          <span>{momentumLabel}</span>
+        </div>
+        <div className="arena-meter h-2">
+          <span style={{ width: `${occupancyRatio}%` }} />
+        </div>
+      </div>
+
       <p className="mt-4 text-sm text-white/62">
         {room
           ? canCancelExpiredRoom
@@ -121,7 +141,7 @@ export function RoomCard({
           : "No active round exists yet. Open the route and the first gameplay transaction will initialize the room if required, then join and commit in one step."}
       </p>
 
-      <div className="mt-6 flex items-center justify-between text-sm text-white/70">
+      <div className="mt-6 flex flex-col gap-4 text-sm text-white/70 sm:flex-row sm:items-center sm:justify-between">
         <span className="inline-flex items-center gap-2">
           <Users className="size-4 text-fault-flare" />
           {room?.playerCount ?? 0} / {preset.maxPlayers}
@@ -136,7 +156,7 @@ export function RoomCard({
             type="button"
             onClick={() => void openRoom()}
             disabled={pending}
-            className="arena-primary inline-flex items-center gap-2 px-4 py-2 font-display text-xs uppercase tracking-[0.22em] disabled:cursor-not-allowed disabled:opacity-50"
+            className="arena-primary inline-flex w-full items-center gap-2 px-4 py-2 font-display text-xs uppercase tracking-[0.22em] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {pending ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
             Open room

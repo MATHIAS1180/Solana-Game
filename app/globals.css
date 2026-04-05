@@ -75,6 +75,7 @@ select {
     linear-gradient(120deg, rgba(255, 107, 53, 0.05), transparent 40%, rgba(125, 249, 255, 0.05));
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.36);
   backdrop-filter: blur(18px);
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
 .fault-card::before {
@@ -84,6 +85,11 @@ select {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 28%, transparent 72%, rgba(125, 249, 255, 0.08));
   opacity: 0.75;
   pointer-events: none;
+}
+
+.fault-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.42);
 }
 
 .fault-grid {
@@ -158,11 +164,22 @@ select {
   background: linear-gradient(135deg, #ffd166, #ff7f50);
   color: #17181d;
   box-shadow: 0 20px 50px rgba(255, 107, 53, 0.28);
+  overflow: hidden;
+}
+
+.arena-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.34) 26%, transparent 52%);
+  transform: translateX(-130%);
+  animation: arenaSweep 4.2s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .arena-primary:hover,
 .arena-secondary:hover {
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.01);
 }
 
 .arena-secondary {
@@ -240,6 +257,25 @@ select {
   pointer-events: none;
 }
 
+.arena-meter {
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.arena-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(255, 209, 102, 0.92), rgba(255, 127, 80, 0.95), rgba(125, 249, 255, 0.8));
+}
+
+.arena-quote {
+  border-left: 2px solid rgba(125, 249, 255, 0.4);
+  padding-left: 1rem;
+  color: rgba(255, 255, 255, 0.76);
+}
+
 .arena-fade-in {
   animation: arenaRise 520ms ease both;
 }
@@ -305,6 +341,18 @@ select {
   }
 }
 
+@keyframes arenaSweep {
+  0% {
+    transform: translateX(-140%);
+  }
+  45% {
+    transform: translateX(140%);
+  }
+  100% {
+    transform: translateX(140%);
+  }
+}
+
 .wallet-adapter-button {
   transition: transform 180ms ease, filter 180ms ease !important;
 }
@@ -315,12 +363,38 @@ select {
 }
 
 @media (max-width: 768px) {
+  .arena-kicker {
+    gap: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+  }
+
+  .arena-primary,
+  .arena-secondary {
+    width: 100%;
+    padding: 0.9rem 1.2rem;
+    letter-spacing: 0.16em;
+  }
+
+  .arena-chip {
+    width: 100%;
+    justify-content: center;
+  }
+
   .arena-toast-stack {
     left: 1rem;
     right: 1rem;
     width: auto;
   }
 }
+
+@media (max-width: 480px) {
+  .fault-card {
+    backdrop-filter: blur(14px);
+  }
+}
+
 
 .fault-scrollbar::-webkit-scrollbar {
   height: 8px;
