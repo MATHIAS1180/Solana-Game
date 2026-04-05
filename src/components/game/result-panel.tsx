@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BarChart3, Copy, Medal, Share2, Trophy } from "lucide-react";
 
 import { useToast } from "@/components/ui/toast-provider";
+import { buildRoundReplaySlug } from "@/lib/faultline/metagame";
 import { RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { describeNearMiss, scoreResolvedRoom } from "@/lib/faultline/logic";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
@@ -43,6 +44,7 @@ export function ResultPanel({
   const player = rank >= 0 ? scoredPlayers[rank] : null;
   const winner = scoredPlayers[0];
   const payoutCutoff = room.winnerCount > 0 ? scoredPlayers[Math.min(room.winnerCount, scoredPlayers.length) - 1] ?? null : null;
+  const replayHref = `/replay/${buildRoundReplaySlug({ room: room.publicKey.toBase58(), createdSlot: room.createdSlot.toString() })}`;
 
   async function copyRoomLink() {
     try {
@@ -148,6 +150,9 @@ export function ResultPanel({
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <a href={`${roomHref}#room-actions`} className="arena-primary px-5 py-3 text-center text-xs uppercase tracking-[0.2em]">
                 Queue next read
+              </a>
+              <a href={replayHref} className="arena-secondary px-5 py-3 text-center text-xs uppercase tracking-[0.2em]">
+                Open replay
               </a>
               <button type="button" onClick={() => void shareRound()} className="arena-secondary px-5 py-3 text-xs uppercase tracking-[0.2em]">
                 <Share2 className="size-4" />

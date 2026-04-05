@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ProgramBanner } from "@/components/game/program-banner";
+import { buildRoundReplaySlug } from "@/lib/faultline/metagame";
 import { getPersistentMetagameSnapshot } from "@/lib/faultline/server-data";
 import { formatLamports, shortKey } from "@/lib/utils";
 
@@ -19,6 +20,37 @@ export default async function LeaderboardPage() {
         <p className="mt-4 max-w-3xl text-sm leading-7 text-white/68 sm:text-base">
           This board is built from resolved rounds captured as the live system rooms rotate. It turns Faultline from a good room loop into a readable long-term rivalry layer.
         </p>
+      </section>
+
+      <section className="fault-card rounded-[2rem] p-6 sm:p-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="arena-kicker">Fresh Replays</p>
+            <h2 className="mt-3 font-display text-2xl text-white">The most recent rounds that now deserve post-mortem attention.</h2>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          {snapshot.recentRounds.length > 0 ? (
+            snapshot.recentRounds.slice(0, 6).map((round) => (
+              <div key={round.id} className="arena-surface rounded-[1.5rem] p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-display text-xl text-white">{formatLamports(BigInt(round.stakeLamports))} Arena</p>
+                    <p className="mt-1 text-sm text-white/68">Histogram [{round.finalHistogram.join(", ")}] / winner {round.winnerWallets[0] ? shortKey(round.winnerWallets[0], 6) : "unknown"}</p>
+                  </div>
+                  <Link href={`/replay/${buildRoundReplaySlug({ room: round.room, createdSlot: round.createdSlot })}`} className="arena-secondary px-5 py-3 text-xs uppercase tracking-[0.2em]">
+                    Open replay
+                  </Link>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="arena-surface rounded-[1.5rem] p-5 text-sm leading-7 text-white/68">
+              No replay is available yet because no resolved round has been persisted.
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="fault-card rounded-[2rem] p-6 sm:p-8">

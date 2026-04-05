@@ -158,6 +158,10 @@ export async function getPersistentPlayerProfile(wallet: string) {
   return (await loadProfile(wallet)) ?? createEmptyPersistentPlayerProfile(wallet);
 }
 
+export async function getPersistentRound(id: string) {
+  return await loadRound(id);
+}
+
 export async function getRecentPersistentRounds(limit = 10) {
   const ids = getRedis() ? await listRoundIds() : [...memoryRoundIndex];
   const rounds = (await Promise.all(ids.map((id) => loadRound(id)))).filter((round): round is PersistentRoundEntry => Boolean(round));

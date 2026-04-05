@@ -2,7 +2,7 @@ import { PublicKey } from "@solana/web3.js";
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_STATUS, ROOM_STATUS } from "@/lib/faultline/constants";
-import { applyRoundToPersistentProfile, buildPersistentLeaderboard, createEmptyPersistentPlayerProfile, summarizeResolvedRound } from "@/lib/faultline/metagame";
+import { applyRoundToPersistentProfile, buildPersistentLeaderboard, buildRoundReplaySlug, createEmptyPersistentPlayerProfile, parseRoundReplaySlug, summarizeResolvedRound } from "@/lib/faultline/metagame";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 
 const EMPTY_KEY = new PublicKey(new Uint8Array(32));
@@ -114,5 +114,12 @@ describe("persistent metagame", () => {
     expect(walletProfile.averageError).toBe(0);
     expect(leaderboard[0]?.wallet).toBe(wallet);
     expect(leaderboard[0]?.score).toBeGreaterThan(leaderboard[1]?.score ?? 0);
+  });
+
+  it("builds and parses replay slugs deterministically", () => {
+    const slug = buildRoundReplaySlug({ room: new PublicKey(new Uint8Array(32).fill(9)).toBase58(), createdSlot: "260" });
+
+    expect(parseRoundReplaySlug(slug)).toEqual({ room: new PublicKey(new Uint8Array(32).fill(9)).toBase58(), createdSlot: "260" });
+    expect(parseRoundReplaySlug("broken-slug")).toBeNull();
   });
 });

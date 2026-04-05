@@ -38,6 +38,7 @@ export type PersistentPlayerRound = {
   room: string;
   presetId: number;
   status: number;
+  createdSlot: string;
   resolveSlot: string;
   stakeLamports: string;
   rewardLamports: string;
@@ -76,6 +77,37 @@ export type PersistentLeaderboardEntry = {
   bestScoreBps: number | null;
   timeoutCount: number;
 };
+
+export function buildRoundReplaySlug(input: { room: string; createdSlot: string }) {
+  return `${input.room}~${input.createdSlot}`;
+}
+
+export function parseRoundReplaySlug(slug: string) {
+  const parts = slug.split("~");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return null;
+  }
+
+  return {
+    room: parts[0],
+    createdSlot: parts[1]
+  };
+}
+
+export function sortPersistentRoundLines(round: PersistentRoundEntry) {
+  return [...round.lines].sort((left, right) => {
+    if (left.finish !== null && right.finish !== null && left.finish !== right.finish) {
+      return left.finish - right.finish;
+    }
+    if (left.finish !== null) {
+      return -1;
+    }
+    if (right.finish !== null) {
+      return 1;
+    }
+    return Number(BigInt(right.rewardLamports) - BigInt(left.rewardLamports));
+  });
+}
 
 export function summarizeResolvedRound(room: FaultlineRoomAccount): PersistentRoundEntry | null {
   if (room.status !== ROOM_STATUS.Resolved) {
@@ -152,6 +184,7 @@ export function applyRoundToPersistentProfile(profile: PersistentPlayerProfile, 
           room: round.room,
           presetId: round.presetId,
           status: round.status,
+          createdSlot: round.createdSlot,
           resolveSlot: round.resolveSlot,
           stakeLamports: round.stakeLamports,
           rewardLamports: line.rewardLamports,
@@ -226,4 +259,8 @@ export function buildPersistentLeaderboard(profiles: PersistentPlayerProfile[]) 
 
 export function getPersistentRoundId(room: Pick<FaultlineRoomAccount, "publicKey" | "createdSlot">) {
   return `${room.publicKey.toBase58()}:${room.createdSlot.toString()}`;
+}
+
+export function getPersistentRoundIdFromParts(room: string, createdSlot: string) {
+  return `${room}:${createdSlot}`;
 }

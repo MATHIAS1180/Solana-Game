@@ -1,4 +1,4 @@
-import type { PersistentPlayerProfile } from "@/lib/faultline/metagame";
+import { buildRoundReplaySlug, type PersistentPlayerProfile } from "@/lib/faultline/metagame";
 import { PLAYER_STATUS_LABELS, ROOM_STATUS_LABELS, RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
 import type { PlayerBoardSnapshot } from "@/lib/faultline/player-profile";
 import { formatLamports, shortKey } from "@/lib/utils";
@@ -134,6 +134,9 @@ export function PlayerDossier({ snapshot, profile }: { snapshot: PlayerBoardSnap
                   <div className="text-sm text-white/72 sm:text-right">
                     <p>{BigInt(round.rewardLamports) > 0n ? `Payout ${formatLamports(BigInt(round.rewardLamports))}` : "No payout"}</p>
                     <p className="mt-1">{round.error === null ? "No revealed error recorded" : `Error ${round.error} / Score ${round.scoreBps ?? 0}`}</p>
+                    <a href={`/replay/${buildRoundReplaySlug({ room: round.room, createdSlot: round.createdSlot })}`} className="mt-2 inline-flex text-xs uppercase tracking-[0.2em] text-fault-flare transition hover:text-white">
+                      Open replay
+                    </a>
                   </div>
                 </div>
               </div>

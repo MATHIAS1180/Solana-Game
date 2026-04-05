@@ -2,13 +2,14 @@ import "server-only";
 
 import { PublicKey } from "@solana/web3.js";
 
-import { DEFAULT_ROOM_PRESETS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
-import { getPersistentLeaderboard, getPersistentPlayerProfile, getRecentPersistentRounds, syncMetagameFromRooms } from "@/lib/faultline/metagame-store";
+import { DEFAULT_ROOM_PRESETS, ROOM_STATUS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
+import { getPersistentRoundIdFromParts, parseRoundReplaySlug, summarizeResolvedRound } from "@/lib/faultline/metagame";
+import { getPersistentLeaderboard, getPersistentPlayerProfile, getPersistentRound, getRecentPersistentRounds, syncMetagameFromRooms } from "@/lib/faultline/metagame-store";
 import { buildPlayerBoardSnapshot } from "@/lib/faultline/player-profile";
 import { deriveRoomPda } from "@/lib/faultline/pdas";
 import { fetchReserve, fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import { selectVisibleSystemRooms } from "@/lib/faultline/system-rooms";
-import { serializeReserveAccount, serializeRoomAccount } from "@/lib/faultline/transport";
+import { deserializeRoomAccount, serializeReserveAccount, serializeRoomAccount } from "@/lib/faultline/transport";
 import { getServerConnection, getServerProgramId } from "@/lib/solana/server";
 
 let lastVisibleRoomsSnapshot: Awaited<ReturnType<typeof buildVisibleRoomsSnapshot>> | null = null;
@@ -139,6 +140,30 @@ export async function getReserveSnapshot() {
 
     throw error;
   }
+}
+
+export async function getPersistentRoundReplay(slug: string) {
+  const parsed = parseRoundReplaySlug(slug);
+  if (!parsed) {
+    return null;
+  }
+
+  const stored = await getPersistentRound(getPersistentRoundIdFromParts(parsed.room, parsed.createdSlot));
+  if (stored) {
+    return stored;
+  }
+
+  const roomSnapshot = await getRoomSnapshot(parsed.room);
+  if (!roomSnapshot?.room) {
+    return null;
+  }
+
+  const room = deserializeRoomAccount(roomSnapshot.room);
+  if (room.status !== ROOM_STATUS.Resolved || room.createdSlot.toString() !== parsed.createdSlot) {
+    return null;
+  }
+
+  return summarizeResolvedRound(room);
 }
 
 export async function getVisibleRoomsSnapshot() {

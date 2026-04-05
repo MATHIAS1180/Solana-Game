@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ProgramBanner } from "@/components/game/program-banner";
 import { ROOM_STATUS, ROOM_STATUS_LABELS } from "@/lib/faultline/constants";
+import { buildRoundReplaySlug } from "@/lib/faultline/metagame";
 import { getPersistentMetagameSnapshot, getVisibleRoomsSnapshot } from "@/lib/faultline/server-data";
 import { getProtocolManifest } from "@/lib/faultline/protocol";
 import { deserializeRoomAccount } from "@/lib/faultline/transport";
@@ -22,6 +23,28 @@ function getWindowLabel(status: number, currentSlot: number, room: { joinDeadlin
   return "settled";
 }
 
+function buildWatchTicker(params: {
+  liveRooms: Array<ReturnType<typeof deserializeRoomAccount>>;
+  currentSlot: number;
+  recentRounds: Awaited<ReturnType<typeof getPersistentMetagameSnapshot>>["recentRounds"];
+}) {
+  const liveEvents = params.liveRooms.slice(0, 4).map((room) => ({
+    key: `${room.publicKey.toBase58()}:${room.createdSlot.toString()}`,
+    label: room.status === ROOM_STATUS.Reveal ? "Reveal live" : room.status === ROOM_STATUS.Commit ? "Commit pressure" : "Open seats",
+    detail: `${formatLamports(room.stakeLamports)} / ${room.playerCount} seats / ${getWindowLabel(room.status, params.currentSlot, room)}`,
+    href: `/rooms/${room.publicKey.toBase58()}` as `/${string}`
+  }));
+
+  const replayEvents = params.recentRounds.slice(0, 4).map((round) => ({
+    key: round.id,
+    label: "Replay ready",
+    detail: `${formatLamports(BigInt(round.stakeLamports))} / winner ${round.winnerWallets[0] ? shortKey(round.winnerWallets[0], 6) : "unknown"}`,
+    href: `/replay/${buildRoundReplaySlug({ room: round.room, createdSlot: round.createdSlot })}` as `/${string}`
+  }));
+
+  return [...liveEvents, ...replayEvents].slice(0, 8);
+}
+
 export default async function WatchPage() {
   const [liveSnapshot, metagame] = await Promise.all([getVisibleRoomsSnapshot(), getPersistentMetagameSnapshot(8)]);
   const protocol = getProtocolManifest();
@@ -29,6 +52,7 @@ export default async function WatchPage() {
   const liveRooms = rooms.filter((room) => room.playerCount > 0 && room.status !== ROOM_STATUS.Resolved && room.status !== ROOM_STATUS.Cancelled && room.status !== ROOM_STATUS.Emergency);
   const hottestRoom = [...liveRooms].sort((left, right) => right.playerCount + right.committedCount + right.revealedCount - (left.playerCount + left.committedCount + left.revealedCount))[0] ?? null;
   const activeSeats = liveRooms.reduce((sum, room) => sum + room.playerCount, 0);
+  const ticker = buildWatchTicker({ liveRooms, currentSlot: liveSnapshot.currentSlot, recentRounds: metagame.recentRounds });
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
@@ -121,6 +145,11 @@ export default async function WatchPage() {
                         <p className="mt-1">Reserve {formatLamports(BigInt(round.reserveFeeLamports))}</p>
                       </div>
                     </div>
+                    <div className="mt-4">
+                      <Link href={`/replay/${buildRoundReplaySlug({ room: round.room, createdSlot: round.createdSlot })}`} className="arena-secondary inline-flex px-4 py-2 text-xs uppercase tracking-[0.2em]">
+                        Open replay
+                      </Link>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -133,6 +162,30 @@ export default async function WatchPage() {
         </div>
 
         <div className="space-y-8">
+          <div className="fault-card rounded-[2rem] p-6 sm:p-8">
+            <p className="arena-kicker">Broadcast Ticker</p>
+            <h2 className="mt-3 font-display text-2xl text-white">The shortest path to what matters right now.</h2>
+            <div className="mt-6 space-y-3">
+              {ticker.length > 0 ? (
+                ticker.map((entry) => (
+                  <a key={entry.key} href={entry.href} className="arena-surface block rounded-2xl p-4 transition hover:border-white/20 hover:bg-white/[0.05]">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.22em] text-fault-flare">{entry.label}</p>
+                        <p className="mt-2 text-sm text-white/78">{entry.detail}</p>
+                      </div>
+                      <span className="text-xs uppercase tracking-[0.2em] text-white/45">Open</span>
+                    </div>
+                  </a>
+                ))
+              ) : (
+                <div className="arena-surface rounded-2xl p-4 text-sm leading-7 text-white/68">
+                  The board is calm right now. This ticker will light up as soon as live pressure or new replays appear.
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="fault-card rounded-[2rem] p-6 sm:p-8">
             <p className="arena-kicker">Protocol Console</p>
             <h2 className="mt-3 font-display text-2xl text-white">Watcher-grade protocol facts.</h2>
