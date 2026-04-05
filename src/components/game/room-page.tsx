@@ -372,9 +372,11 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
   const liveShare = room.distributableLamports > 0n ? room.distributableLamports / BigInt(Math.max(room.winnerCount, 1)) : 0n;
   const seatsLeft = Math.max(room.maxPlayers - room.playerCount, 0);
   const occupancyRatio = room.maxPlayers > 0 ? Math.round((room.playerCount / room.maxPlayers) * 100) : 0;
+  const primaryActionHref = showRevealPanel ? "#reveal-panel" : showCommitComposer ? "#commit-composer" : room.status === ROOM_STATUS.Resolved ? "#result-panel" : "#room-actions";
+  const primaryActionLabel = showRevealPanel ? "Reveal" : showCommitComposer ? "Commit" : room.status === ROOM_STATUS.Resolved ? "Outcome" : "Actions";
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 pb-32 md:px-10 md:pb-10 lg:px-12">
       <ProgramBanner />
 
       <section className="fault-card arena-phase-shell rounded-[2rem] p-6 sm:p-8" data-phase={phase.phase}>
@@ -491,11 +493,21 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
       </section>
 
       <section className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-        <RoomActions room={room} currentSlot={currentSlot} playerIndex={playerIndex} onRefresh={refreshRoom} />
+        <div id="room-actions" className="scroll-mt-24">
+          <RoomActions room={room} currentSlot={currentSlot} playerIndex={playerIndex} onRefresh={refreshRoom} />
+        </div>
 
         <div className="space-y-6">
-          {showCommitComposer ? <CommitComposer room={room} playerIndex={playerIndex} onCommitted={refreshRoom} /> : null}
-          {showRevealPanel ? <RevealPanel room={room} onRevealed={refreshRoom} /> : null}
+          {showCommitComposer ? (
+            <div id="commit-composer" className="scroll-mt-24">
+              <CommitComposer room={room} playerIndex={playerIndex} onCommitted={refreshRoom} />
+            </div>
+          ) : null}
+          {showRevealPanel ? (
+            <div id="reveal-panel" className="scroll-mt-24">
+              <RevealPanel room={room} onRevealed={refreshRoom} />
+            </div>
+          ) : null}
           {playerStatus === PLAYER_STATUS.Committed && room.status === ROOM_STATUS.Commit ? (
             <div className="fault-card rounded-[1.75rem] p-6 text-sm leading-7 text-white/68">
               <p className="arena-kicker">Reveal Standby</p>
@@ -538,9 +550,26 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
             </div>
           </div>
 
-          <ResultPanel room={room} playerIndex={playerIndex} roomHref={`/rooms/${room.publicKey.toBase58()}`} />
+          <div id="result-panel" className="scroll-mt-24">
+            <ResultPanel room={room} playerIndex={playerIndex} roomHref={`/rooms/${room.publicKey.toBase58()}`} />
+          </div>
         </div>
       </section>
+
+      <div className="arena-mobile-dock md:hidden">
+        <div className="arena-mobile-dock-inner">
+          <div className="arena-mobile-dock-copy">
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/45">Live room navigation</p>
+            <p className="mt-1 truncate font-display text-base text-white">{phase.label}</p>
+          </div>
+          <a href="#room-actions" className="arena-mobile-pill">
+            Board
+          </a>
+          <a href={primaryActionHref} className="arena-mobile-pill" data-tone="primary">
+            {primaryActionLabel}
+          </a>
+        </div>
+      </div>
     </main>
   );
 }

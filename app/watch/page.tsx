@@ -45,6 +45,13 @@ function buildWatchTicker(params: {
   return [...liveEvents, ...replayEvents].slice(0, 8);
 }
 
+function getRoomHeat(room: ReturnType<typeof deserializeRoomAccount>) {
+  const seatPressure = room.maxPlayers > 0 ? room.playerCount / room.maxPlayers : 0;
+  const actionPressure = room.playerCount > 0 ? (room.committedCount + room.revealedCount) / Math.max(room.playerCount * 2, 1) : 0;
+
+  return Math.round(Math.min(1, seatPressure * 0.55 + actionPressure * 0.45) * 100);
+}
+
 export default async function WatchPage() {
   const [liveSnapshot, metagame] = await Promise.all([getVisibleRoomsSnapshot(), getPersistentMetagameSnapshot(8)]);
   const protocol = getProtocolManifest();
@@ -53,46 +60,93 @@ export default async function WatchPage() {
   const hottestRoom = [...liveRooms].sort((left, right) => right.playerCount + right.committedCount + right.revealedCount - (left.playerCount + left.committedCount + left.revealedCount))[0] ?? null;
   const activeSeats = liveRooms.reduce((sum, room) => sum + room.playerCount, 0);
   const ticker = buildWatchTicker({ liveRooms, currentSlot: liveSnapshot.currentSlot, recentRounds: metagame.recentRounds });
+  const hottestRoomHeat = hottestRoom ? getRoomHeat(hottestRoom) : 0;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
       <ProgramBanner />
 
-      <section className="fault-card rounded-[2rem] p-6 sm:p-8">
-        <p className="arena-kicker">Watch Live</p>
-        <h1 className="mt-3 max-w-4xl font-display text-4xl leading-tight text-white sm:text-5xl">A spectator surface built to watch pressure form, not just inspect room state.</h1>
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <div className="arena-stat rounded-3xl p-5">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live lanes</p>
-            <p className="mt-3 text-3xl text-white">{liveRooms.length}</p>
-          </div>
-          <div className="arena-stat rounded-3xl p-5">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Active seats</p>
-            <p className="mt-3 text-3xl text-white">{activeSeats}</p>
-          </div>
-          <div className="arena-stat rounded-3xl p-5">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit seal</p>
-            <p className="mt-3 text-3xl text-white">V{protocol.commitVersion}</p>
-          </div>
-          <div className="arena-stat rounded-3xl p-5">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reserve routing</p>
-            <p className="mt-3 text-lg text-white">Reserve PDA</p>
-          </div>
-        </div>
-        {hottestRoom ? (
-          <div className="mt-6 rounded-[1.6rem] border border-white/10 bg-black/20 p-5">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Hottest lane now</p>
-            <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="font-display text-3xl text-white">{formatLamports(hottestRoom.stakeLamports)} / {ROOM_STATUS_LABELS[hottestRoom.status]}</h2>
-                <p className="mt-2 text-sm leading-7 text-white/68">{hottestRoom.playerCount} seats visible, {hottestRoom.committedCount} commits locked, {hottestRoom.revealedCount} reveals opened.</p>
+      <section className="fault-card arena-stage-shell relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
+        <div className="grid gap-6 xl:grid-cols-[1.18fr_0.82fr]">
+          <div>
+            <p className="arena-kicker">Watch Live</p>
+            <h1 className="mt-3 max-w-4xl font-display text-4xl leading-tight text-white sm:text-5xl">A control room for pressure, tempo, and public momentum.</h1>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/68 sm:text-base">
+              Track where new seats are forming, where commit pressure is hiding disagreement, and where reveals are about to redraw the public payout map.
+            </p>
+            <div className="mt-6 grid gap-4 md:grid-cols-4">
+              <div className="arena-stat rounded-3xl p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live lanes</p>
+                <p className="mt-3 text-3xl text-white">{liveRooms.length}</p>
               </div>
-              <Link href={`/rooms/${hottestRoom.publicKey.toBase58()}`} className="arena-primary px-5 py-3 text-xs uppercase tracking-[0.2em]">
-                Open live room
-              </Link>
+              <div className="arena-stat rounded-3xl p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Active seats</p>
+                <p className="mt-3 text-3xl text-white">{activeSeats}</p>
+              </div>
+              <div className="arena-stat rounded-3xl p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit seal</p>
+                <p className="mt-3 text-3xl text-white">V{protocol.commitVersion}</p>
+              </div>
+              <div className="arena-stat rounded-3xl p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Event schema</p>
+                <p className="mt-3 text-lg text-white">V{protocol.eventSchemaVersion}</p>
+              </div>
             </div>
           </div>
-        ) : null}
+
+          <div className="arena-editorial-panel rounded-[1.8rem] p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Broadcast focus</p>
+                <h2 className="mt-3 font-display text-2xl text-white">{hottestRoom ? "The room pulling the whole board forward" : "Waiting for the next ignition"}</h2>
+              </div>
+              <span className="arena-chip" data-tone="flare">Live desk</span>
+            </div>
+            {hottestRoom ? (
+              <>
+                <div className="mt-5 rounded-[1.4rem] border border-white/10 bg-black/25 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-fault-flare">Heat index</p>
+                  <div className="mt-3 flex items-end justify-between gap-4">
+                    <div>
+                      <p className="font-display text-4xl text-white">{hottestRoomHeat}%</p>
+                      <p className="mt-2 text-sm text-white/68">{formatLamports(hottestRoom.stakeLamports)} lane with {hottestRoom.playerCount} seats visible and {getWindowLabel(hottestRoom.status, liveSnapshot.currentSlot, hottestRoom)} left on the public clock.</p>
+                    </div>
+                    <Link href={`/rooms/${hottestRoom.publicKey.toBase58()}`} className="arena-primary px-5 py-3 text-xs uppercase tracking-[0.2em]">
+                      Open lane
+                    </Link>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
+                      <span>Broadcast intensity</span>
+                      <span>{hottestRoomHeat}%</span>
+                    </div>
+                    <div className="arena-meter h-2">
+                      <span style={{ width: `${hottestRoomHeat}%` }} />
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+                    <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Status</p>
+                    <p className="mt-2 text-white">{ROOM_STATUS_LABELS[hottestRoom.status]}</p>
+                  </div>
+                  <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+                    <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commits locked</p>
+                    <p className="mt-2 text-white">{hottestRoom.committedCount}</p>
+                  </div>
+                  <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+                    <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reveals opened</p>
+                    <p className="mt-2 text-white">{hottestRoom.revealedCount}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="mt-5 rounded-[1.4rem] border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/68">
+                No seat is currently pulling enough public attention to become the focal lane. As soon as the next room fills or reveals turn volatile, this panel will switch into live guidance.
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
@@ -103,7 +157,7 @@ export default async function WatchPage() {
             <div className="mt-6 space-y-3">
               {liveRooms.length > 0 ? (
                 liveRooms.map((room) => (
-                  <div key={`${room.publicKey.toBase58()}:${room.createdSlot.toString()}`} className="arena-surface rounded-2xl p-4">
+                  <div key={`${room.publicKey.toBase58()}:${room.createdSlot.toString()}`} className="arena-surface arena-broadcast-card rounded-2xl p-4 sm:p-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <Link href={`/rooms/${room.publicKey.toBase58()}`} className="font-display text-xl text-white transition hover:text-fault-flare">
@@ -114,6 +168,26 @@ export default async function WatchPage() {
                       <div className="text-sm text-white/72 sm:text-right">
                         <p>Window {getWindowLabel(room.status, liveSnapshot.currentSlot, room)}</p>
                         <p className="mt-1">Round #{room.createdSlot.toString()}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
+                          <span>Seat fill</span>
+                          <span>{room.maxPlayers > 0 ? Math.round((room.playerCount / room.maxPlayers) * 100) : 0}%</span>
+                        </div>
+                        <div className="arena-meter mt-2 h-2">
+                          <span style={{ width: `${room.maxPlayers > 0 ? Math.round((room.playerCount / room.maxPlayers) * 100) : 0}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
+                          <span>Reveal completion</span>
+                          <span>{room.committedCount > 0 ? Math.round((room.revealedCount / room.committedCount) * 100) : 0}%</span>
+                        </div>
+                        <div className="arena-meter mt-2 h-2">
+                          <span style={{ width: `${room.committedCount > 0 ? Math.round((room.revealedCount / room.committedCount) * 100) : 0}%` }} />
+                        </div>
                       </div>
                     </div>
                   </div>

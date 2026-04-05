@@ -447,6 +447,145 @@ a:focus-visible {
     linear-gradient(125deg, rgba(var(--arena-signal-rgb), 0.06), transparent 28%, rgba(var(--arena-ember), 0.07));
 }
 
+.arena-editorial-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    linear-gradient(135deg, rgba(var(--arena-ember), 0.08), transparent 46%, rgba(var(--arena-signal-rgb), 0.08));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.arena-editorial-panel::after {
+  content: "";
+  position: absolute;
+  inset: auto -12% -50% auto;
+  width: 14rem;
+  height: 14rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(var(--arena-flare), 0.2), transparent 62%);
+  filter: blur(28px);
+  pointer-events: none;
+}
+
+.arena-stage-shell::after {
+  content: "";
+  position: absolute;
+  inset: auto 12% -26% 18%;
+  height: 12rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(var(--arena-signal-rgb), 0.16), transparent 58%);
+  filter: blur(34px);
+  pointer-events: none;
+}
+
+.arena-broadcast-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.arena-broadcast-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 32%, transparent 70%, rgba(var(--arena-signal-rgb), 0.04));
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.arena-podium-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.arena-podium-card[data-rank="1"] {
+  border-color: rgba(var(--arena-flare), 0.24);
+}
+
+.arena-podium-card[data-rank="2"] {
+  border-color: rgba(var(--arena-signal-rgb), 0.2);
+}
+
+.arena-podium-card[data-rank="3"] {
+  border-color: rgba(var(--arena-ember), 0.2);
+}
+
+.arena-podium-card[data-rank="1"]::before,
+.arena-podium-card[data-rank="2"]::before,
+.arena-podium-card[data-rank="3"]::before {
+  content: "";
+  position: absolute;
+  inset: auto -16% -44% auto;
+  width: 13rem;
+  height: 13rem;
+  border-radius: 9999px;
+  filter: blur(26px);
+  pointer-events: none;
+}
+
+.arena-podium-card[data-rank="1"]::before {
+  background: radial-gradient(circle, rgba(var(--arena-flare), 0.22), transparent 58%);
+}
+
+.arena-podium-card[data-rank="2"]::before {
+  background: radial-gradient(circle, rgba(var(--arena-signal-rgb), 0.18), transparent 58%);
+}
+
+.arena-podium-card[data-rank="3"]::before {
+  background: radial-gradient(circle, rgba(var(--arena-ember), 0.18), transparent 58%);
+}
+
+.arena-mobile-dock {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 70;
+  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+
+.arena-mobile-dock-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 11, 17, 0.86);
+  box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.18), 0 24px 60px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(22px) saturate(135%);
+  border-radius: 1.3rem;
+  padding: 0.9rem;
+  pointer-events: auto;
+}
+
+.arena-mobile-dock-copy {
+  min-width: 0;
+}
+
+.arena-mobile-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.85rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0 1rem;
+  font-family: var(--font-syne);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.arena-mobile-pill[data-tone="primary"] {
+  border-color: rgba(var(--arena-flare), 0.22);
+  background: linear-gradient(135deg, rgba(var(--arena-flare), 1), rgba(var(--arena-ember), 0.95));
+  color: #12151c;
+}
+
 .arena-delay-1 {
   animation-delay: 70ms;
 }
@@ -948,6 +1087,11 @@ a:focus-visible {
     line-height: 0.95;
   }
 
+  .arena-stage-shell::after {
+    inset: auto -12% -26% -8%;
+    height: 9rem;
+  }
+
   .arena-mobile-strip > * {
     min-width: 27rem;
   }
@@ -968,6 +1112,30 @@ a:focus-visible {
 
   .arena-nav-strip {
     gap: 0.4rem;
+  }
+
+  .arena-mobile-dock {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .arena-mobile-dock-inner {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "copy copy"
+      "actions primary";
+  }
+
+  .arena-mobile-dock-copy {
+    grid-area: copy;
+  }
+
+  .arena-mobile-dock-inner > a:first-of-type {
+    grid-area: actions;
+  }
+
+  .arena-mobile-dock-inner > a:last-of-type {
+    grid-area: primary;
   }
 
   .arena-stat:hover,
