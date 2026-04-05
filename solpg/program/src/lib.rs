@@ -776,8 +776,8 @@ fn process_join_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRe
 
     require_signer(player)?;
     require_system_program(system_program_ai)?;
-    let mut room: RoomState = load_state(room_state_ai)?;
-    verify_room_ownership(program_id, room_state_ai, &room)?;
+    let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
+    verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     verify_vault(program_id, room_state_ai.key, vault_ai, room.vault_bump)?;
 
     let slot = Clock::get()?.slot;
@@ -790,7 +790,7 @@ fn process_join_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRe
     if room.player_count as usize >= room.max_players as usize {
         return Err(FaultlineError::JoinClosed.into());
     }
-    if find_player_index(&room, player.key).is_some() {
+    if find_player_index(room.as_ref(), player.key).is_some() {
         return Err(FaultlineError::DuplicateJoin.into());
     }
 
@@ -845,7 +845,7 @@ fn process_join_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRe
     profile.games_joined = profile.games_joined.saturating_add(1);
     profile.last_game_slot = slot;
     store_state(&profile, profile_ai)?;
-    store_state(&room, room_state_ai)?;
+    store_state(room.as_ref(), room_state_ai)?;
     msg!("PlayerJoined");
     Ok(())
 }
@@ -858,15 +858,15 @@ fn process_submit_commit(program_id: &Pubkey, accounts: &[AccountInfo], input: &
     let profile_ai = next_account_info(&mut iter)?;
 
     require_signer(player)?;
-    let mut room: RoomState = load_state(room_state_ai)?;
-    verify_room_ownership(program_id, room_state_ai, &room)?;
+    let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
+    verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     let (expected_profile, _) = Pubkey::find_program_address(&[PROFILE_SEED_PREFIX, player.key.as_ref()], program_id);
     if expected_profile != *profile_ai.key {
         return Err(FaultlineError::InvalidPda.into());
     }
     let mut profile: ProfileState = load_state(profile_ai)?;
     let commit_hash = take_32(&mut input)?;
-    let index = find_player_index(&room, player.key).ok_or(FaultlineError::PlayerNotFound)?;
+    let index = find_player_index(room.as_ref(), player.key).ok_or(FaultlineError::PlayerNotFound)?;
     let slot = Clock::get()?.slot;
 
     if room.status == ROOM_OPEN && room.player_count > 0 && room.join_deadline_slot > 0 && slot > room.join_deadline_slot && room.player_count < room.min_players {
@@ -905,7 +905,7 @@ fn process_submit_commit(program_id: &Pubkey, accounts: &[AccountInfo], input: &
     }
 
     store_state(&profile, profile_ai)?;
-    store_state(&room, room_state_ai)?;
+    store_state(room.as_ref(), room_state_ai)?;
     msg!("CommitSubmitted");
     Ok(())
 }
@@ -917,8 +917,8 @@ fn process_reveal_decision(program_id: &Pubkey, accounts: &[AccountInfo], input:
     let room_state_ai = next_account_info(&mut iter)?;
     let profile_ai = next_account_info(&mut iter)?;
 
-    let mut room: RoomState = load_state(room_state_ai)?;
-    verify_room_ownership(program_id, room_state_ai, &room)?;
+    let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
+    verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     let (expected_profile, _) = Pubkey::find_program_address(&[PROFILE_SEED_PREFIX, player.key.as_ref()], program_id);
     if expected_profile != *profile_ai.key {
         return Err(FaultlineError::InvalidPda.into());
@@ -959,7 +959,7 @@ fn process_reveal_decision(program_id: &Pubkey, accounts: &[AccountInfo], input:
         return Err(FaultlineError::RevealPhaseNotReady.into());
     }
 
-    let index = find_player_index(&room, player.key).ok_or(FaultlineError::PlayerNotFound)?;
+    let index = find_player_index(room.as_ref(), player.key).ok_or(FaultlineError::PlayerNotFound)?;
     if room.player_status[index] != PLAYER_COMMITTED {
         return Err(FaultlineError::InvalidPlayerState.into());
     }
@@ -984,7 +984,7 @@ fn process_reveal_decision(program_id: &Pubkey, accounts: &[AccountInfo], input:
     profile.games_revealed = profile.games_revealed.saturating_add(1);
 
     store_state(&profile, profile_ai)?;
-    store_state(&room, room_state_ai)?;
+    store_state(room.as_ref(), room_state_ai)?;
     msg!("DecisionRevealed");
     Ok(())
 }
@@ -996,8 +996,8 @@ fn process_force_timeout(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progr
     let vault_ai = next_account_info(&mut iter)?;
     let reserve_ai = next_account_info(&mut iter)?;
 
-    let mut room: RoomState = load_state(room_state_ai)?;
-    verify_room_ownership(program_id, room_state_ai, &room)?;
+    let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
+    verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     verify_vault(program_id, room_state_ai.key, vault_ai, room.vault_bump)?;
     verify_reserve(program_id, reserve_ai)?;
     let mut reserve: ReserveState = load_state(reserve_ai)?;
@@ -1079,13 +1079,13 @@ fn process_force_timeout(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progr
         _ => return Err(FaultlineError::InvalidRoomStatus.into()),
     }
 
-    if should_reset_room(&room) {
+    if should_reset_room(room.as_ref()) {
         reset_room_to_lobby(&mut room, slot);
         msg!("RoomReset");
     }
 
     store_state(&reserve, reserve_ai)?;
-    store_state(&room, room_state_ai)?;
+    store_state(room.as_ref(), room_state_ai)?;
     msg!("TimeoutForced");
     Ok(())
 }
@@ -1098,11 +1098,11 @@ fn process_resolve_game(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     let reserve_ai = next_account_info(&mut iter)?;
     let treasury_ai = next_account_info(&mut iter)?;
 
-    let mut room: RoomState = load_state(room_state_ai)?;
-    verify_room_ownership(program_id, room_state_ai, &room)?;
+    let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
+    verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     verify_vault(program_id, room_state_ai.key, vault_ai, room.vault_bump)?;
     verify_reserve(program_id, reserve_ai)?;
-    verify_treasury(treasury_ai, &room)?;
+    verify_treasury(treasury_ai, room.as_ref())?;
 
     if room.status != ROOM_REVEAL {
         return Err(FaultlineError::ResolveNotReady.into());
@@ -1176,7 +1176,7 @@ fn process_resolve_game(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     room.resolve_slot = Clock::get()?.slot;
     room.status = ROOM_RESOLVED;
 
-    store_state(&room, room_state_ai)?;
+    store_state(room.as_ref(), room_state_ai)?;
     msg!("GameResolved");
     Ok(())
 }
@@ -1188,14 +1188,14 @@ fn process_claim_reward(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     let vault_ai = next_account_info(&mut iter)?;
     let _system_program_ai = next_account_info(&mut iter)?;
 
-    let mut room: RoomState = load_state(room_state_ai)?;
-    verify_room_ownership(program_id, room_state_ai, &room)?;
+    let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
+    verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     verify_vault(program_id, room_state_ai.key, vault_ai, room.vault_bump)?;
     if room.status != ROOM_RESOLVED && room.status != ROOM_CANCELLED && room.status != ROOM_EMERGENCY {
         return Err(FaultlineError::InvalidRoomStatus.into());
     }
 
-    let index = find_player_index(&room, player.key).ok_or(FaultlineError::PlayerNotFound)?;
+    let index = find_player_index(room.as_ref(), player.key).ok_or(FaultlineError::PlayerNotFound)?;
     if room.player_claimed[index] == 1 {
         return Err(FaultlineError::AlreadyClaimed.into());
     }
@@ -1208,12 +1208,12 @@ fn process_claim_reward(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     room.player_rewards_lamports[index] = 0;
     room.player_claimed[index] = 1;
 
-    if should_reset_room(&room) {
+    if should_reset_room(room.as_ref()) {
         reset_room_to_lobby(&mut room, Clock::get()?.slot);
         msg!("RoomReset");
     }
 
-    store_state(&room, room_state_ai)?;
+    store_state(room.as_ref(), room_state_ai)?;
     msg!("RewardClaimed");
     Ok(())
 }
@@ -1224,8 +1224,8 @@ fn process_cancel_expired_room(program_id: &Pubkey, accounts: &[AccountInfo]) ->
     let room_state_ai = next_account_info(&mut iter)?;
     let _vault_ai = next_account_info(&mut iter)?;
 
-    let mut room: RoomState = load_state(room_state_ai)?;
-    verify_room_ownership(program_id, room_state_ai, &room)?;
+    let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
+    verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     if room.status != ROOM_OPEN || room.player_count == 0 || room.join_deadline_slot == 0 || Clock::get()?.slot <= room.join_deadline_slot || room.player_count >= room.min_players {
         return Err(FaultlineError::InvalidRoomStatus.into());
     }
@@ -1237,7 +1237,7 @@ fn process_cancel_expired_room(program_id: &Pubkey, accounts: &[AccountInfo]) ->
         }
     }
 
-    store_state(&room, room_state_ai)?;
+    store_state(room.as_ref(), room_state_ai)?;
     msg!("RoomCancelled");
     Ok(())
 }
@@ -1249,8 +1249,8 @@ fn process_close_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramR
     let vault_ai = next_account_info(&mut iter)?;
 
     require_signer(recipient)?;
-    let mut room: RoomState = load_state(room_state_ai)?;
-    verify_room_ownership(program_id, room_state_ai, &room)?;
+    let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
+    verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     verify_vault(program_id, room_state_ai.key, vault_ai, room.vault_bump)?;
 
     if room.status != ROOM_RESOLVED && room.status != ROOM_CANCELLED && room.status != ROOM_EMERGENCY {
@@ -1261,7 +1261,7 @@ fn process_close_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramR
     }
 
     reset_room_to_lobby(&mut room, Clock::get()?.slot);
-    store_state(&room, room_state_ai)?;
+    store_state(room.as_ref(), room_state_ai)?;
     let _ = vault_ai;
     msg!("RoomReset");
     Ok(())

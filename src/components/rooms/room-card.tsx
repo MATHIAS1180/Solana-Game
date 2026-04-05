@@ -68,19 +68,22 @@ export function RoomCard({
 
       const [roomPda] = await deriveRoomPda(programId, preset.id);
       const transaction = new Transaction();
-      transaction.add(
-        await createInitRoomIx({
-          programId,
-          creator: publicKey,
-          stakeLamports: preset.stakeLamports,
-          minPlayers: preset.minPlayers,
-          maxPlayers: preset.maxPlayers,
-          joinWindowSlots: preset.joinWindowSlots,
-          commitWindowSlots: preset.commitWindowSlots,
-          revealWindowSlots: preset.revealWindowSlots,
-          presetId: preset.id
-        })
-      );
+      const existingRoom = await connection.getAccountInfo(roomPda, "confirmed");
+      if (!existingRoom) {
+        transaction.add(
+          await createInitRoomIx({
+            programId,
+            creator: publicKey,
+            stakeLamports: preset.stakeLamports,
+            minPlayers: preset.minPlayers,
+            maxPlayers: preset.maxPlayers,
+            joinWindowSlots: preset.joinWindowSlots,
+            commitWindowSlots: preset.commitWindowSlots,
+            revealWindowSlots: preset.revealWindowSlots,
+            presetId: preset.id
+          })
+        );
+      }
       transaction.add(
         await createJoinRoomIx({
           programId,
