@@ -2,8 +2,8 @@ import { PublicKey } from "@solana/web3.js";
 
 const encoder = new TextEncoder();
 
-export async function deriveRoomPda(programId: PublicKey, roomSeed: Uint8Array) {
-  return PublicKey.findProgramAddressSync([encoder.encode("room"), roomSeed], programId);
+export async function deriveRoomPda(programId: PublicKey, presetId: number) {
+  return PublicKey.findProgramAddressSync([encoder.encode("room"), Uint8Array.from([presetId])], programId);
 }
 
 export async function deriveVaultPda(programId: PublicKey, roomPda: PublicKey) {

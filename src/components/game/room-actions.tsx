@@ -12,7 +12,6 @@ import { PLAYER_STATUS, ROOM_STATUS } from "@/lib/faultline/constants";
 import {
   createCancelExpiredRoomIx,
   createClaimRewardIx,
-  createCloseRoomIx,
   createForceTimeoutIx,
   createResolveGameIx
 } from "@/lib/faultline/instructions";
@@ -70,7 +69,12 @@ export function RoomActions({
   const claimed = isJoined ? room.playerClaimed[playerIndex] : false;
   const isSettledRoom =
     room.status === ROOM_STATUS.Resolved || room.status === ROOM_STATUS.Cancelled || room.status === ROOM_STATUS.Emergency;
-  const canCancel = room.status === ROOM_STATUS.Open && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
+  const canJoinOpenRoom =
+    room.status === ROOM_STATUS.Open &&
+    room.playerCount < room.maxPlayers &&
+    (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 || currentSlot <= Number(room.joinDeadlineSlot));
+  const canCancel =
+    room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0 && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
   const canForceTimeout =
     (room.status === ROOM_STATUS.Commit && currentSlot > Number(room.commitDeadlineSlot)) ||
     (room.status === ROOM_STATUS.Reveal && currentSlot > Number(room.revealDeadlineSlot));
@@ -80,8 +84,6 @@ export function RoomActions({
     ((room.status === ROOM_STATUS.Reveal && room.revealedCount === room.committedCount) ||
       (room.status === ROOM_STATUS.Reveal && currentSlot > Number(room.revealDeadlineSlot)) ||
       (room.status === ROOM_STATUS.Commit && room.committedCount === room.playerCount));
-  const canClose = isSettledRoom && room.playerRewardsLamports.every((item, index) => item === 0n || room.playerClaimed[index]);
-
   async function execute(label: string, builder: () => Promise<Transaction>) {
     if (!programId || !publicKey || !sendTransaction) {
       setMessage("Wallet non connecte ou Program ID absent.");
@@ -163,22 +165,12 @@ export function RoomActions({
             />
           ) : null}
 
-          {canClose ? (
-            <ActionButton
-              title="Close Room"
-              icon={Ban}
-              pending={pending === "Close"}
-              onClick={async () => {
-                await execute("Close", async () => new Transaction().add(await createCloseRoomIx({ programId: programId!, caller: publicKey!, room: room.publicKey })));
-              }}
-            />
-          ) : null}
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-white/72">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Join deadline</p>
-            <p className="mt-2 text-white">{formatCountdown(Number(room.joinDeadlineSlot) - currentSlot)}</p>
+            <p className="mt-2 text-white">{room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 ? "demarre au prochain joueur" : formatCountdown(Number(room.joinDeadlineSlot) - currentSlot)}</p>
           </div>
           <div className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-white/72">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit deadline</p>
@@ -193,7 +185,7 @@ export function RoomActions({
         {message ? <p className="mt-5 text-sm text-white/72">{message}</p> : null}
       </div>
 
-      {!isJoined && room.status === ROOM_STATUS.Open && currentSlot <= Number(room.joinDeadlineSlot) && room.playerCount < room.maxPlayers ? (
+      {!isJoined && canJoinOpenRoom ? (
         <CommitComposer room={room} playerIndex={-1} onCommitted={onRefresh} />
       ) : null}
 

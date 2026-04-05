@@ -6,7 +6,7 @@ export function findSystemPresetById(presetId: number): RoomPreset | null {
 }
 
 export function isPendingCancellationRoom(room: FaultlineRoomAccount, currentSlot: number) {
-  return room.status === ROOM_STATUS.Open && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
+  return room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0 && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
 }
 
 export function isSettledSystemRoom(room: FaultlineRoomAccount) {
@@ -22,7 +22,7 @@ export function isJoinableSystemRoom(room: FaultlineRoomAccount, currentSlot: nu
   return (
     matchesDefaultRoomPreset(room) &&
     room.status === ROOM_STATUS.Open &&
-    currentSlot <= Number(room.joinDeadlineSlot) &&
+    (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 || currentSlot <= Number(room.joinDeadlineSlot)) &&
     room.playerCount < room.maxPlayers
   );
 }

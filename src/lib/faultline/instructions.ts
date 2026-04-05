@@ -26,7 +26,6 @@ function createInstructionData(tag: number, parts: Uint8Array[] = []) {
 export async function createInitRoomIx(args: {
   programId: PublicKey;
   creator: PublicKey;
-  roomSeed: Uint8Array;
   stakeLamports: bigint | number;
   minPlayers: number;
   maxPlayers: number;
@@ -35,7 +34,7 @@ export async function createInitRoomIx(args: {
   revealWindowSlots: bigint | number;
   presetId: number;
 }) {
-  const [roomPda] = await deriveRoomPda(args.programId, args.roomSeed);
+  const [roomPda] = await deriveRoomPda(args.programId, args.presetId);
   const [vaultPda] = await deriveVaultPda(args.programId, roomPda);
   const [reservePda] = await deriveReservePda(args.programId);
 
@@ -49,7 +48,6 @@ export async function createInitRoomIx(args: {
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
     ],
     data: createInstructionData(0, [
-      args.roomSeed,
       u64Bytes(args.stakeLamports),
       Uint8Array.from([args.minPlayers, args.maxPlayers]),
       u64Bytes(args.joinWindowSlots),

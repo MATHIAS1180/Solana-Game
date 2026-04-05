@@ -38,12 +38,17 @@ export function RoomCard({
   const joinRemaining = room ? Number(room.joinDeadlineSlot) - currentSlot : 0;
   const commitRemaining = room ? Number(room.commitDeadlineSlot) - currentSlot : 0;
   const revealRemaining = room ? Number(room.revealDeadlineSlot) - currentSlot : 0;
-  const canCancelExpiredRoom = !!room && room.status === ROOM_STATUS.Open && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
-  const canJoinRoom = !!room && room.status === ROOM_STATUS.Open && currentSlot <= Number(room.joinDeadlineSlot) && room.playerCount < room.maxPlayers;
+  const canCancelExpiredRoom =
+    !!room && room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0 && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
+  const canJoinRoom =
+    !!room &&
+    room.status === ROOM_STATUS.Open &&
+    room.playerCount < room.maxPlayers &&
+    (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 || currentSlot <= Number(room.joinDeadlineSlot));
 
   const deadlineLabel =
-    !room
-      ? "demarre au 1er joueur"
+    !room || room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0
+      ? "demarre au prochain joueur"
       : canCancelExpiredRoom
         ? "annulation requise"
         : room.status === ROOM_STATUS.Open
@@ -51,12 +56,6 @@ export function RoomCard({
           : room.status === ROOM_STATUS.Commit
             ? formatCountdown(commitRemaining)
             : formatCountdown(revealRemaining);
-
-  function generateRoomSeed() {
-    const roomSeed = new Uint8Array(32);
-    crypto.getRandomValues(roomSeed);
-    return roomSeed;
-  }
 
   async function createAndJoinPresetRoom() {
     try {
@@ -67,14 +66,12 @@ export function RoomCard({
         throw new Error("Connecte ton wallet avant d'ouvrir cette room.");
       }
 
-      const roomSeed = generateRoomSeed();
-      const [roomPda] = await deriveRoomPda(programId, roomSeed);
+      const [roomPda] = await deriveRoomPda(programId, preset.id);
       const transaction = new Transaction();
       transaction.add(
         await createInitRoomIx({
           programId,
           creator: publicKey,
-          roomSeed,
           stakeLamports: preset.stakeLamports,
           minPlayers: preset.minPlayers,
           maxPlayers: preset.maxPlayers,
@@ -164,10 +161,12 @@ export function RoomCard({
         {room
           ? canCancelExpiredRoom
             ? "La derniere partie de ce preset n'a pas atteint le minimum de joueurs. Annule-la pour rembourser les participants et liberer le lobby."
+            : room.playerCount === 0
+              ? "Cette room persistante est prete. Le prochain joueur relance le decompte et prend la premiere place."
             : canJoinRoom
               ? "Une partie est ouverte sur ce preset. Le chrono tourne deja et tu peux encore la rejoindre."
               : "Une partie existe deja sur ce preset. Ouvre-la pour suivre la phase courante ou jouer tes actions permissionless."
-          : "Aucune partie active. Le premier joueur qui rejoint cree l'instance on-chain et lance le decompte."}
+          : "Aucune partie active. Le premier joueur initialise la room on-chain si besoin, puis lance le decompte."}
       </p>
 
       <div className="mt-6 flex items-center justify-between text-sm text-white/70">

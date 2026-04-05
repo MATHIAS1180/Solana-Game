@@ -27,7 +27,7 @@ const RESERVE_FEE_BPS: u64 = 200;
 const TREASURY_PUBKEY: Pubkey = pubkey!("12dZBGCWRKtLnZVSc1Nxa2uUnvrbjCwpkkbbwHiybHoQ");
 const EMPTY_KEY: [u8; 32] = [0u8; 32];
 
-const ROOM_STATE_SIZE: usize = 1331;
+const ROOM_STATE_SIZE: usize = 1339;
 const PROFILE_STATE_SIZE: usize = 136;
 const RESERVE_STATE_SIZE: usize = 76;
 
@@ -37,7 +37,6 @@ const ROOM_REVEAL: u8 = 2;
 const ROOM_RESOLVED: u8 = 3;
 const ROOM_CANCELLED: u8 = 4;
 const ROOM_EMERGENCY: u8 = 5;
-const ROOM_CLOSED: u8 = 6;
 
 const PLAYER_JOINED: u8 = 1;
 const PLAYER_COMMITTED: u8 = 2;
@@ -110,6 +109,7 @@ pub struct RoomState {
     pub slashed_to_reserve_lamports: u64,
     pub created_slot: u64,
     pub join_deadline_slot: u64,
+    pub join_duration_slots: u64,
     pub commit_duration_slots: u64,
     pub commit_deadline_slot: u64,
     pub reveal_duration_slots: u64,
@@ -149,6 +149,7 @@ impl RoomState {
         preset_id: u8,
         created_slot: u64,
         join_deadline_slot: u64,
+        join_duration_slots: u64,
         commit_duration_slots: u64,
         reveal_duration_slots: u64,
     ) -> Self {
@@ -175,6 +176,7 @@ impl RoomState {
             slashed_to_reserve_lamports: 0,
             created_slot,
             join_deadline_slot,
+            join_duration_slots,
             commit_duration_slots,
             commit_deadline_slot: 0,
             reveal_duration_slots,
@@ -301,6 +303,7 @@ impl FaultlineCodec for RoomState {
         let slashed_to_reserve_lamports = read_u64(input, &mut offset)?;
         let created_slot = read_u64(input, &mut offset)?;
         let join_deadline_slot = read_u64(input, &mut offset)?;
+        let join_duration_slots = read_u64(input, &mut offset)?;
         let commit_duration_slots = read_u64(input, &mut offset)?;
         let commit_deadline_slot = read_u64(input, &mut offset)?;
         let reveal_duration_slots = read_u64(input, &mut offset)?;
@@ -391,6 +394,7 @@ impl FaultlineCodec for RoomState {
             slashed_to_reserve_lamports,
             created_slot,
             join_deadline_slot,
+            join_duration_slots,
             commit_duration_slots,
             commit_deadline_slot,
             reveal_duration_slots,
@@ -445,6 +449,7 @@ impl FaultlineCodec for RoomState {
         write_u64(output, &mut offset, self.slashed_to_reserve_lamports)?;
         write_u64(output, &mut offset, self.created_slot)?;
         write_u64(output, &mut offset, self.join_deadline_slot)?;
+        write_u64(output, &mut offset, self.join_duration_slots)?;
         write_u64(output, &mut offset, self.commit_duration_slots)?;
         write_u64(output, &mut offset, self.commit_deadline_slot)?;
         write_u64(output, &mut offset, self.reveal_duration_slots)?;
@@ -660,7 +665,6 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
     require_signer(creator)?;
     require_system_program(system_program_ai)?;
 
-    let room_seed = take_32(&mut input)?;
     let stake_lamports = take_u64(&mut input)?;
     let min_players = take_u8(&mut input)?;
     let max_players = take_u8(&mut input)?;
@@ -668,12 +672,25 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
     let commit_window_slots = take_u64(&mut input)?;
     let reveal_window_slots = take_u64(&mut input)?;
     let preset_id = take_u8(&mut input)?;
+    let room_seed = room_seed_from_preset(preset_id);
 
     if stake_lamports == 0 || min_players < 2 || min_players > max_players || max_players as usize > MAX_PLAYERS {
         return Err(FaultlineError::InvalidRoomState.into());
     }
 
-    let (expected_room, room_bump) = Pubkey::find_program_address(&[ROOM_SEED_PREFIX, &room_seed], program_id);
+    if !matches_system_preset(
+        preset_id,
+        stake_lamports,
+        min_players,
+        max_players,
+        join_window_slots,
+        commit_window_slots,
+        reveal_window_slots,
+    ) {
+        return Err(FaultlineError::InvalidRoomState.into());
+    }
+
+    let (expected_room, room_bump) = Pubkey::find_program_address(&[ROOM_SEED_PREFIX, &[preset_id]], program_id);
     if expected_room != *room_state_ai.key {
         return Err(FaultlineError::InvalidPda.into());
     }
@@ -698,7 +715,7 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
         system_program_ai,
         program_id,
         ROOM_STATE_SIZE,
-        &[ROOM_SEED_PREFIX, &room_seed, &[room_bump]],
+        &[ROOM_SEED_PREFIX, &[preset_id], &[room_bump]],
     )?;
 
     create_pda_account(
@@ -740,7 +757,8 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
         max_players,
         preset_id,
         slot,
-        slot.checked_add(join_window_slots).ok_or(FaultlineError::ArithmeticOverflow)?,
+        0,
+        join_window_slots,
         commit_window_slots,
         reveal_window_slots,
     )?;
@@ -763,7 +781,10 @@ fn process_join_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRe
     verify_vault(program_id, room_state_ai.key, vault_ai, room.vault_bump)?;
 
     let slot = Clock::get()?.slot;
-    if room.status != ROOM_OPEN || slot > room.join_deadline_slot {
+    if room.status != ROOM_OPEN {
+        return Err(FaultlineError::JoinClosed.into());
+    }
+    if room.player_count > 0 && room.join_deadline_slot > 0 && slot > room.join_deadline_slot {
         return Err(FaultlineError::JoinClosed.into());
     }
     if room.player_count as usize >= room.max_players as usize {
@@ -807,6 +828,13 @@ fn process_join_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRe
         .checked_add(room.stake_lamports)
         .ok_or(FaultlineError::ArithmeticOverflow)?;
 
+    if room.player_count == 1 {
+        room.created_slot = slot;
+        room.join_deadline_slot = slot
+            .checked_add(room.join_duration_slots)
+            .ok_or(FaultlineError::ArithmeticOverflow)?;
+    }
+
     if room.status == ROOM_OPEN && room.player_count >= room.min_players && room.committed_count > 0 && room.commit_deadline_slot == 0 {
         room.status = ROOM_COMMIT;
         room.commit_deadline_slot = slot
@@ -841,7 +869,7 @@ fn process_submit_commit(program_id: &Pubkey, accounts: &[AccountInfo], input: &
     let index = find_player_index(&room, player.key).ok_or(FaultlineError::PlayerNotFound)?;
     let slot = Clock::get()?.slot;
 
-    if room.status == ROOM_OPEN && slot > room.join_deadline_slot && room.player_count < room.min_players {
+    if room.status == ROOM_OPEN && room.player_count > 0 && room.join_deadline_slot > 0 && slot > room.join_deadline_slot && room.player_count < room.min_players {
         return Err(FaultlineError::JoinClosed.into());
     }
 
@@ -1051,6 +1079,11 @@ fn process_force_timeout(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progr
         _ => return Err(FaultlineError::InvalidRoomStatus.into()),
     }
 
+    if should_reset_room(&room) {
+        reset_room_to_lobby(&mut room, slot);
+        msg!("RoomReset");
+    }
+
     store_state(&reserve, reserve_ai)?;
     store_state(&room, room_state_ai)?;
     msg!("TimeoutForced");
@@ -1174,6 +1207,12 @@ fn process_claim_reward(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     move_lamports(vault_ai, player, amount)?;
     room.player_rewards_lamports[index] = 0;
     room.player_claimed[index] = 1;
+
+    if should_reset_room(&room) {
+        reset_room_to_lobby(&mut room, Clock::get()?.slot);
+        msg!("RoomReset");
+    }
+
     store_state(&room, room_state_ai)?;
     msg!("RewardClaimed");
     Ok(())
@@ -1187,7 +1226,7 @@ fn process_cancel_expired_room(program_id: &Pubkey, accounts: &[AccountInfo]) ->
 
     let mut room: RoomState = load_state(room_state_ai)?;
     verify_room_ownership(program_id, room_state_ai, &room)?;
-    if room.status != ROOM_OPEN || Clock::get()?.slot <= room.join_deadline_slot || room.player_count >= room.min_players {
+    if room.status != ROOM_OPEN || room.player_count == 0 || room.join_deadline_slot == 0 || Clock::get()?.slot <= room.join_deadline_slot || room.player_count >= room.min_players {
         return Err(FaultlineError::InvalidRoomStatus.into());
     }
 
@@ -1221,11 +1260,10 @@ fn process_close_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramR
         return Err(FaultlineError::ResolveNotReady.into());
     }
 
-    room.status = ROOM_CLOSED;
+    reset_room_to_lobby(&mut room, Clock::get()?.slot);
     store_state(&room, room_state_ai)?;
-    close_account(vault_ai, recipient)?;
-    close_account(room_state_ai, recipient)?;
-    msg!("RoomClosed");
+    let _ = vault_ai;
+    msg!("RoomReset");
     Ok(())
 }
 
@@ -1311,6 +1349,7 @@ fn write_room_state_init(
     preset_id: u8,
     created_slot: u64,
     join_deadline_slot: u64,
+    join_duration_slots: u64,
     commit_duration_slots: u64,
     reveal_duration_slots: u64,
 ) -> ProgramResult {
@@ -1340,6 +1379,7 @@ fn write_room_state_init(
     write_u64(&mut data, &mut offset, 0)?;
     write_u64(&mut data, &mut offset, created_slot)?;
     write_u64(&mut data, &mut offset, join_deadline_slot)?;
+    write_u64(&mut data, &mut offset, join_duration_slots)?;
     write_u64(&mut data, &mut offset, commit_duration_slots)?;
     write_u64(&mut data, &mut offset, 0)?;
     write_u64(&mut data, &mut offset, reveal_duration_slots)?;
@@ -1424,14 +1464,73 @@ fn move_lamports(from: &AccountInfo, to: &AccountInfo, amount: u64) -> ProgramRe
     Ok(())
 }
 
-fn close_account(account: &AccountInfo, recipient: &AccountInfo) -> ProgramResult {
-    let amount = account.lamports();
-    if amount > 0 {
-        move_lamports(account, recipient, amount)?;
+fn room_seed_from_preset(preset_id: u8) -> [u8; 32] {
+    let mut seed = [0u8; 32];
+    seed[..11].copy_from_slice(b"preset-room");
+    seed[31] = preset_id;
+    seed
+}
+
+fn matches_system_preset(
+    preset_id: u8,
+    stake_lamports: u64,
+    min_players: u8,
+    max_players: u8,
+    join_window_slots: u64,
+    commit_window_slots: u64,
+    reveal_window_slots: u64,
+) -> bool {
+    matches!(
+        (preset_id, stake_lamports, min_players, max_players, join_window_slots, commit_window_slots, reveal_window_slots),
+        (0, 10_000_000, 2, 12, 220, 160, 160)
+            | (1, 20_000_000, 2, 12, 220, 160, 160)
+            | (2, 40_000_000, 2, 12, 220, 160, 160)
+            | (3, 80_000_000, 2, 12, 220, 160, 160)
+            | (4, 160_000_000, 2, 12, 220, 160, 160)
+            | (5, 320_000_000, 2, 12, 220, 160, 160)
+            | (6, 640_000_000, 2, 12, 220, 160, 160)
+            | (7, 1_000_000_000, 2, 12, 260, 180, 180)
+    )
+}
+
+fn should_reset_room(room: &RoomState) -> bool {
+    (room.status == ROOM_RESOLVED || room.status == ROOM_CANCELLED || room.status == ROOM_EMERGENCY)
+        && !room.player_rewards_lamports[..room.player_count as usize]
+            .iter()
+            .any(|value| *value > 0)
+}
+
+fn reset_room_to_lobby(room: &mut RoomState, slot: u64) {
+    room.status = ROOM_OPEN;
+    room.player_count = 0;
+    room.committed_count = 0;
+    room.revealed_count = 0;
+    room.active_count = 0;
+    room.flags = 0;
+    room.total_staked_lamports = 0;
+    room.distributable_lamports = 0;
+    room.reserve_fee_lamports = 0;
+    room.slashed_to_reserve_lamports = 0;
+    room.created_slot = slot;
+    room.join_deadline_slot = 0;
+    room.commit_deadline_slot = 0;
+    room.reveal_deadline_slot = 0;
+    room.resolve_slot = 0;
+    room.final_histogram = [0; 5];
+    room.winner_indices = [u8::MAX; 4];
+
+    for index in 0..MAX_PLAYERS {
+        room.player_keys[index] = EMPTY_KEY;
+        room.player_status[index] = 0;
+        room.player_claimed[index] = 0;
+        room.player_zone[index] = 0;
+        room.player_risk[index] = 0;
+        room.player_commit_hashes[index] = [0u8; 32];
+        room.player_forecasts[index] = [0u8; 5];
+        room.player_errors[index] = 0;
+        room.player_scores_bps[index] = 0;
+        room.player_rewards_lamports[index] = 0;
     }
-    let mut data = account.try_borrow_mut_data()?;
-    data.fill(0);
-    Ok(())
 }
 
 fn find_player_index(room: &RoomState, player: &Pubkey) -> Option<usize> {

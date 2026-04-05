@@ -29,6 +29,7 @@ function createRoom(overrides: Partial<FaultlineRoomAccount>): FaultlineRoomAcco
     slashedToReserveLamports: 0n,
     createdSlot: 100n,
     joinDeadlineSlot: 200n,
+    joinDurationSlots: 220n,
     commitDurationSlots: 160n,
     commitDeadlineSlot: 0n,
     revealDurationSlots: 160n,
@@ -82,5 +83,14 @@ describe("selectVisibleSystemRooms", () => {
 
     expect(visibleRooms).toHaveLength(1);
     expect(visibleRooms[0].publicKey.equals(newerRoom.publicKey)).toBe(true);
+  });
+
+  it("garde une room idle persistante visible et joinable", () => {
+    const room = createRoom({ playerCount: 0, joinDeadlineSlot: 0n });
+
+    const visibleRooms = selectVisibleSystemRooms(150, [room]);
+
+    expect(visibleRooms).toHaveLength(1);
+    expect(visibleRooms[0].publicKey.equals(room.publicKey)).toBe(true);
   });
 });

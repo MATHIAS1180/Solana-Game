@@ -6,7 +6,6 @@ import { AUTOMATION_HEARTBEAT_INTERVAL_MS, PLAYER_STATUS, ROOM_STATUS, matchesDe
 import {
   createCancelExpiredRoomIx,
   createClaimRewardIx,
-  createCloseRoomIx,
   createForceTimeoutIx,
   createResolveGameIx,
   createRevealDecisionIx
@@ -99,7 +98,7 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
     let room: FaultlineRoomAccount | null = initialRoom;
     let currentSlot = await connection.getSlot("confirmed");
 
-    if (room.status === ROOM_STATUS.Open && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers) {
+    if (room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0 && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers) {
       room = await execute("cancel-expired", room.publicKey, async () => {
         return new Transaction().add(await createCancelExpiredRoomIx({ programId, caller: relayer, room: room!.publicKey }));
       });
@@ -206,12 +205,6 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
         if (!room || !isSettledRoom(room)) {
           break;
         }
-      }
-
-      if (room && summary.transactionCount < maxActions && isSettledRoom(room) && !hasPendingClaims(room)) {
-        await execute("close-room", room.publicKey, async () => {
-          return new Transaction().add(await createCloseRoomIx({ programId, caller: relayer, room: room!.publicKey }));
-        });
       }
     }
   }

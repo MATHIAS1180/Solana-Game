@@ -18,10 +18,10 @@ export function CreateRoomForm() {
       <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-black/25 p-5 text-sm text-white/70">
         <div>
           <p className="font-mono uppercase tracking-[0.22em] text-white/45">Mode actuel</p>
-          <p className="mt-2">Chaque mise dispose maintenant d'un lobby permanent visible en continu. Tant qu'aucun joueur n'entre, il n'existe pas encore de room on-chain et aucun chrono ne tourne.</p>
+          <p className="mt-2">Chaque mise dispose maintenant d'un lobby permanent visible en continu. La room on-chain est initialisee au premier usage, puis recyclee apres chaque partie au lieu d'etre fermee.</p>
         </div>
         <div>
-          <p className="mt-2">Le premier joueur ouvre l'instance on-chain et prend automatiquement la premiere place. Si la room expire sous le minimum de joueurs, n'importe qui peut l'annuler depuis la carte du preset et le lobby reste disponible.</p>
+          <p className="mt-2">Le prochain joueur libre relance toujours le chrono et prend automatiquement la premiere place. Si la room expire sous le minimum de joueurs, les refunds sont claims puis la room revient a son etat de base.</p>
         </div>
       </div>
 

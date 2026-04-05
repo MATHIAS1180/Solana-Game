@@ -52,6 +52,7 @@ export type FaultlineRoomAccount = {
   slashedToReserveLamports: bigint;
   createdSlot: bigint;
   joinDeadlineSlot: bigint;
+  joinDurationSlots: bigint;
   commitDurationSlots: bigint;
   commitDeadlineSlot: bigint;
   revealDurationSlots: bigint;

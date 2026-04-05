@@ -76,6 +76,7 @@ export function decodeRoomAccount(publicKey: PublicKey, data: Buffer | Uint8Arra
   const slashedToReserveLamports = reader.readU64();
   const createdSlot = reader.readU64();
   const joinDeadlineSlot = reader.readU64();
+  const joinDurationSlots = reader.readU64();
   const commitDurationSlots = reader.readU64();
   const commitDeadlineSlot = reader.readU64();
   const revealDurationSlots = reader.readU64();
@@ -124,6 +125,7 @@ export function decodeRoomAccount(publicKey: PublicKey, data: Buffer | Uint8Arra
     slashedToReserveLamports,
     createdSlot,
     joinDeadlineSlot,
+    joinDurationSlots,
     commitDurationSlots,
     commitDeadlineSlot,
     revealDurationSlots,

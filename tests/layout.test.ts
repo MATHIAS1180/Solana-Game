@@ -72,6 +72,7 @@ describe("faultline layout", () => {
     writer.writeU64(0n);
     writer.writeU64(200n);
     writer.writeU64(300n);
+    writer.writeU64(220n);
     writer.writeU64(120n);
     writer.writeU64(420n);
     writer.writeU64(120n);
@@ -128,6 +129,7 @@ describe("faultline layout", () => {
     expect(decoded.status).toBe(ROOM_STATUS.Reveal);
     expect(decoded.stakeLamports).toBe(50_000_000n);
     expect(decoded.playerCount).toBe(2);
+    expect(decoded.joinDurationSlots).toBe(220n);
     expect(decoded.finalHistogram).toEqual([1, 0, 0, 0, 0]);
     expect(decoded.playerKeys[0].equals(new PublicKey(playerOne))).toBe(true);
     expect(decoded.playerStatuses[1]).toBe(PLAYER_STATUS.Committed);

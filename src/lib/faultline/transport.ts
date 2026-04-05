@@ -25,6 +25,7 @@ export type SerializedFaultlineRoomAccount = {
   slashedToReserveLamports: string;
   createdSlot: string;
   joinDeadlineSlot: string;
+  joinDurationSlots: string;
   commitDurationSlots: string;
   commitDeadlineSlot: string;
   revealDurationSlots: string;
@@ -74,6 +75,7 @@ export function serializeRoomAccount(room: FaultlineRoomAccount): SerializedFaul
     slashedToReserveLamports: room.slashedToReserveLamports.toString(),
     createdSlot: room.createdSlot.toString(),
     joinDeadlineSlot: room.joinDeadlineSlot.toString(),
+    joinDurationSlots: room.joinDurationSlots.toString(),
     commitDurationSlots: room.commitDurationSlots.toString(),
     commitDeadlineSlot: room.commitDeadlineSlot.toString(),
     revealDurationSlots: room.revealDurationSlots.toString(),
@@ -124,6 +126,7 @@ export function deserializeRoomAccount(room: SerializedFaultlineRoomAccount): Fa
     slashedToReserveLamports: BigInt(room.slashedToReserveLamports),
     createdSlot: BigInt(room.createdSlot),
     joinDeadlineSlot: BigInt(room.joinDeadlineSlot),
+    joinDurationSlots: BigInt(room.joinDurationSlots),
     commitDurationSlots: BigInt(room.commitDurationSlots),
     commitDeadlineSlot: BigInt(room.commitDeadlineSlot),
     revealDurationSlots: BigInt(room.revealDurationSlots),

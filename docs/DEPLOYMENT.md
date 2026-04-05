@@ -7,7 +7,7 @@ Ce document couvre le chemin prevu par le projet: deploiement du programme via S
 ### Sources a importer
 
 - Programme: solpg/program/src/lib.rs
-- Manifest: solpg/program/Cargo.toml
+- Manifest: solpg/program/Cargo.toml si ton environnement SolPG l'expose; sinon SolPG gere ce manifest en interne et seul src/lib.rs est a coller
 
 ### Etapes
 
@@ -21,7 +21,7 @@ Ce document couvre le chemin prevu par le projet: deploiement du programme via S
 
 ### Comptes derives par seeds
 
-- Room PDA: seed room + room_seed[32]
+- Room PDA systeme: seed room + preset_id sur 1 byte
 - Vault PDA: seed vault + room_pubkey
 - Profile PDA: seed profile + player_pubkey
 - Reserve PDA: seed reserve
@@ -63,7 +63,7 @@ Le programme du depot autorise desormais la creation de nouvelles rooms par n'im
 ## 2. Configurer le frontend local
 
 1. Copier .env.example vers .env.local.
-2. NEXT_PUBLIC_FAULTLINE_PROGRAM_ID doit pointer vers EZEYdSSjhKez5DufTnjjovs3XBKXK76LAnSKAMZUAdwy.
+2. NEXT_PUBLIC_FAULTLINE_PROGRAM_ID doit pointer vers ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr.
 3. Verifier NEXT_PUBLIC_SOLANA_RPC_URL.
 4. Installer les dependances avec npm install.
 5. Lancer npm run dev.
@@ -76,7 +76,7 @@ Configurer les variables suivantes dans le projet Vercel:
 
 - NEXT_PUBLIC_SOLANA_NETWORK=devnet
 - NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
-- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=EZEYdSSjhKez5DufTnjjovs3XBKXK76LAnSKAMZUAdwy
+- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr
 - NEXT_PUBLIC_SOLANA_EXPLORER_BASE_URL=https://explorer.solana.com
 - NEXT_PUBLIC_ENABLE_EMERGENCY_ACTIONS=false
 
@@ -122,13 +122,13 @@ Cette section est optionnelle. Le mode simple du projet n'en a pas besoin.
 1. Le bandeau du site affiche devnet et le bon Program ID.
 2. La page Rooms charge sans erreur RPC.
 3. Les presets de mise sont visibles sur la page Rooms.
-4. Un clic sur un preset cree bien une vraie room on-chain et reserve la premiere place du joueur.
+4. Un clic sur un preset initialise la room persistante si besoin, lance le chrono et reserve la premiere place du joueur.
 5. Le commit cree bien une entree locale IndexedDB et la transaction passe.
 6. Le flux Join + Commit peut se faire en une seule transaction depuis une room ouverte.
 7. Le reveal manuel fonctionne tant que le payload commit est bien stocke localement.
-8. Les actions permissionless timeout, resolve, claim et close restent disponibles dans l'interface.
+8. Les actions permissionless timeout, resolve, claim et cancel restent disponibles dans l'interface quand la phase l'exige.
 9. Resolve route les 2 pourcents de frais vers la treasury configuree.
-10. Claim et CloseRoom vident correctement les rewards restants.
+10. Apres le dernier claim, la room revient proprement a l'etat de lobby sans devoir etre recreee.
 
 ## 5. Limitations connues de l'environnement de developpement
 

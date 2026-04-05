@@ -23,7 +23,7 @@ Faultline est un jeu PvP web3 sur Solana devnet base sur un commit-reveal determ
 - force timeout permissionless
 - claim reward ou refund permissionless
 - cancel expired room permissionless
-- close room permissionless
+- reset automatique des rooms persistantes apres le dernier claim
 - analytics de resultat cote frontend
 
 ## Prerequis
@@ -39,7 +39,7 @@ Copier .env.example vers .env.local et renseigner au minimum:
 
 - NEXT_PUBLIC_SOLANA_NETWORK=devnet
 - NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
-- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=EZEYdSSjhKez5DufTnjjovs3XBKXK76LAnSKAMZUAdwy
+- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr
 - NEXT_PUBLIC_SOLANA_EXPLORER_BASE_URL=https://explorer.solana.com
 - NEXT_PUBLIC_ENABLE_EMERGENCY_ACTIONS=false
 
@@ -74,8 +74,8 @@ Notes RPC:
 ## Mode simple
 
 - le smart contract ne s'auto-execute pas tout seul sur Solana
-- le premier joueur cree une room depuis son wallet a partir d'un preset
-- cette transaction cree la room et reserve la premiere place du joueur
+- le premier joueur initialise la room persistante d'un preset si besoin puis reserve la premiere place
+- apres une annulation ou un settlement complet, la room revient a l'etat de lobby au lieu d'etre fermee
 - sans stockage local du payload commit, le reveal manuel est impossible plus tard
 - toutes les actions de phase restantes sont permissionless et peuvent etre declenchees par n'importe quel visiteur
 - les routes d'automatisation Vercel restent optionnelles si tu veux reintroduire un relayer plus tard
@@ -95,7 +95,7 @@ Instructions exposees:
 7. ForceTimeout
 8. CancelExpiredRoom
 9. EmergencyReturn actuellement desactive et documente comme reserve
-10. CloseRoom
+10. CloseRoom utilise comme reset de compatibilite pour une room persistante deja soldee
 
 ## Documentation complementaire
 
