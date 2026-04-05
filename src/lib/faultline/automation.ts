@@ -14,7 +14,7 @@ import { deriveProfilePda } from "@/lib/faultline/pdas";
 import { claimAutomationHeartbeatLock, deleteAutomationCommitPayload, getAutomationCommitPayload } from "@/lib/faultline/automation-store";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
-import { getRelayerPublicKey, getServerConnection, getServerProgramId, sendRelayerTransaction } from "@/lib/solana/server";
+import { getRelayerPublicKey, getServerConnection, getServerProgramId, hasRelayerConfiguration, sendRelayerTransaction } from "@/lib/solana/server";
 
 type AutomationSummary = {
   processedRooms: number;
@@ -57,6 +57,15 @@ function maxActionsPerRun() {
 }
 
 export async function runAutomationTick(): Promise<AutomationSummary> {
+  if (!hasRelayerConfiguration()) {
+    return {
+      processedRooms: 0,
+      transactionCount: 0,
+      actions: [],
+      errors: []
+    };
+  }
+
   const connection = getServerConnection();
   const programId = getServerProgramId();
   const relayer = getRelayerPublicKey();
@@ -100,7 +109,14 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
 
     if (room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0 && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers) {
       room = await execute("cancel-expired", room.publicKey, async () => {
-        return new Transaction().add(await createCancelExpiredRoomIx({ programId, caller: relayer, room: room!.publicKey }));
+        return new Transaction().add(
+          await createCancelExpiredRoomIx({
+            programId,
+            caller: relayer,
+            room: room!.publicKey,
+            refundPlayers: room!.playerKeys.slice(0, room!.playerCount)
+          })
+        );
       });
     }
 
@@ -213,6 +229,16 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
 }
 
 export async function runAutomationHeartbeat(): Promise<AutomationHeartbeatSummary> {
+  if (!hasRelayerConfiguration()) {
+    return {
+      triggered: false,
+      processedRooms: 0,
+      transactionCount: 0,
+      actions: [],
+      errors: []
+    };
+  }
+
   const interval = Number(process.env.FAULTLINE_AUTOMATION_HEARTBEAT_INTERVAL_MS || AUTOMATION_HEARTBEAT_INTERVAL_MS);
   const lockClaimed = await claimAutomationHeartbeatLock(interval);
 

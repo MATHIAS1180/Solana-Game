@@ -69,12 +69,13 @@ export function RoomActions({
   const claimed = isJoined ? room.playerClaimed[playerIndex] : false;
   const isSettledRoom =
     room.status === ROOM_STATUS.Resolved || room.status === ROOM_STATUS.Cancelled || room.status === ROOM_STATUS.Emergency;
-  const canJoinOpenRoom =
+  const isPendingCancellation =
+    room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0 && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
+  const canComposeEntry =
     room.status === ROOM_STATUS.Open &&
     room.playerCount < room.maxPlayers &&
-    (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 || currentSlot <= Number(room.joinDeadlineSlot));
-  const canCancel =
-    room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0 && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
+    (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 || currentSlot <= Number(room.joinDeadlineSlot) || isPendingCancellation);
+  const canCancel = isPendingCancellation;
   const canForceTimeout =
     (room.status === ROOM_STATUS.Commit && currentSlot > Number(room.commitDeadlineSlot)) ||
     (room.status === ROOM_STATUS.Reveal && currentSlot > Number(room.revealDeadlineSlot));
@@ -124,7 +125,18 @@ export function RoomActions({
               icon={Ban}
               pending={pending === "Cancel"}
               onClick={async () => {
-                await execute("Cancel", async () => new Transaction().add(await createCancelExpiredRoomIx({ programId: programId!, caller: publicKey!, room: room.publicKey })));
+                await execute(
+                  "Cancel",
+                  async () =>
+                    new Transaction().add(
+                      await createCancelExpiredRoomIx({
+                        programId: programId!,
+                        caller: publicKey!,
+                        room: room.publicKey,
+                        refundPlayers: room.playerKeys.slice(0, room.playerCount)
+                      })
+                    )
+                );
               }}
             />
           ) : null}
@@ -185,7 +197,7 @@ export function RoomActions({
         {message ? <p className="mt-5 text-sm text-white/72">{message}</p> : null}
       </div>
 
-      {!isJoined && canJoinOpenRoom ? (
+      {!isJoined && canComposeEntry ? (
         <CommitComposer room={room} playerIndex={-1} onCommitted={onRefresh} />
       ) : null}
 

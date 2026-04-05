@@ -1,5 +1,7 @@
 import { PublicKey, clusterApiUrl } from "@solana/web3.js";
 
+const DEFAULT_FAULTLINE_PROGRAM_ID = "ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr";
+
 export function getSolanaNetwork() {
   return process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet";
 }
@@ -13,7 +15,7 @@ export function getServerRpcEndpoint() {
 }
 
 export function getFaultlineProgramId() {
-  const value = process.env.NEXT_PUBLIC_FAULTLINE_PROGRAM_ID?.trim();
+  const value = process.env.NEXT_PUBLIC_FAULTLINE_PROGRAM_ID?.trim() || DEFAULT_FAULTLINE_PROGRAM_ID;
   if (!value) {
     return null;
   }

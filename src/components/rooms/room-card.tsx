@@ -4,35 +4,27 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { useRouter } from "next/navigation";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { Transaction } from "@solana/web3.js";
 import { ArrowRight, LoaderCircle, Users } from "lucide-react";
 
 import { PhaseBadge } from "@/components/game/phase-badge";
 import { ROOM_STATUS } from "@/lib/faultline/constants";
-import { createCancelExpiredRoomIx, createInitRoomIx, createJoinRoomIx } from "@/lib/faultline/instructions";
 import { deriveRoomPda } from "@/lib/faultline/pdas";
 import type { FaultlineRoomAccount, RoomPreset } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
-import { sendAndConfirm } from "@/lib/solana/transactions";
 import { formatCountdown, formatLamports, shortKey } from "@/lib/utils";
 
 export function RoomCard({
   room,
   preset,
-  currentSlot,
-  onRefresh
+  currentSlot
 }: {
   room: FaultlineRoomAccount | null;
   preset: RoomPreset;
   currentSlot: number;
-  onRefresh: () => Promise<void>;
 }) {
   const router = useRouter();
-  const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
   const programId = getFaultlineProgramId();
-  const [pending, setPending] = useState<"create" | "cancel" | null>(null);
+  const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const joinRemaining = room ? Number(room.joinDeadlineSlot) - currentSlot : 0;
@@ -57,78 +49,26 @@ export function RoomCard({
             ? formatCountdown(commitRemaining)
             : formatCountdown(revealRemaining);
 
-  async function createAndJoinPresetRoom() {
+  async function openRoom() {
     try {
-      setPending("create");
+      setPending(true);
       setMessage(null);
 
-      if (!publicKey || !sendTransaction || !programId) {
-        throw new Error("Connecte ton wallet avant d'ouvrir cette room.");
+      if (room) {
+        router.push(`/rooms/${room.publicKey.toBase58()}`);
+        return;
+      }
+
+      if (!programId) {
+        throw new Error("Program ID absent.");
       }
 
       const [roomPda] = await deriveRoomPda(programId, preset.id);
-      const transaction = new Transaction();
-      const existingRoom = await connection.getAccountInfo(roomPda, "confirmed");
-      if (!existingRoom) {
-        transaction.add(
-          await createInitRoomIx({
-            programId,
-            creator: publicKey,
-            stakeLamports: preset.stakeLamports,
-            minPlayers: preset.minPlayers,
-            maxPlayers: preset.maxPlayers,
-            joinWindowSlots: preset.joinWindowSlots,
-            commitWindowSlots: preset.commitWindowSlots,
-            revealWindowSlots: preset.revealWindowSlots,
-            presetId: preset.id
-          })
-        );
-      }
-      transaction.add(
-        await createJoinRoomIx({
-          programId,
-          player: publicKey,
-          room: roomPda
-        })
-      );
-
-      await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
       router.push(`/rooms/${roomPda.toBase58()}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Impossible d'ouvrir la room.");
     } finally {
-      setPending(null);
-    }
-  }
-
-  async function cancelExpiredRoom() {
-    try {
-      setPending("cancel");
-      setMessage(null);
-
-      if (!room) {
-        return;
-      }
-
-      if (!publicKey || !sendTransaction || !programId) {
-        throw new Error("Connecte ton wallet avant d'annuler cette room.");
-      }
-
-      const transaction = new Transaction().add(
-        await createCancelExpiredRoomIx({
-          programId,
-          caller: publicKey,
-          room: room.publicKey
-        })
-      );
-
-      await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
-      await onRefresh();
-      setMessage("La partie precedente a ete annulee. Le preset est de nouveau libre.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Annulation impossible.");
-    } finally {
-      setPending(null);
+      setPending(false);
     }
   }
 
@@ -163,13 +103,13 @@ export function RoomCard({
       <p className="mt-4 text-sm text-white/62">
         {room
           ? canCancelExpiredRoom
-            ? "La derniere partie de ce preset n'a pas atteint le minimum de joueurs. Annule-la pour rembourser les participants et liberer le lobby."
+            ? "La derniere partie de ce preset n'a pas atteint le minimum de joueurs. Ouvre la room: la prochaine transaction de jeu peut refund, reset puis entrer dans le lobby en un seul envoi."
             : room.playerCount === 0
               ? "Cette room persistante est prete. Le prochain joueur relance le decompte et prend la premiere place."
             : canJoinRoom
-              ? "Une partie est ouverte sur ce preset. Le chrono tourne deja et tu peux encore la rejoindre."
+              ? "Une partie est ouverte sur ce preset. Ouvre la room pour entrer avec ton commit directement dans la meme transaction."
               : "Une partie existe deja sur ce preset. Ouvre-la pour suivre la phase courante ou jouer tes actions permissionless."
-          : "Aucune partie active. Le premier joueur initialise la room on-chain si besoin, puis lance le decompte."}
+          : "Aucune partie active. Ouvre la room: la premiere transaction de jeu l'initialise si besoin, puis join et commit en une seule fois."}
       </p>
 
       <div className="mt-6 flex items-center justify-between text-sm text-white/70">
@@ -177,20 +117,20 @@ export function RoomCard({
           <Users className="size-4 text-fault-flare" />
           {room?.playerCount ?? 0} / {preset.maxPlayers}
         </span>
-        {room && !canCancelExpiredRoom ? (
+        {room ? (
           <Link href={`/rooms/${room.publicKey.toBase58()}`} className="inline-flex items-center gap-2 text-white transition group-hover:text-fault-flare">
-            {canJoinRoom ? "Rejoindre" : "Ouvrir"}
+            {canJoinRoom ? "Entrer" : "Ouvrir"}
             <ArrowRight className="size-4" />
           </Link>
         ) : (
           <button
             type="button"
-            onClick={() => void (canCancelExpiredRoom ? cancelExpiredRoom() : createAndJoinPresetRoom())}
-            disabled={pending !== null}
+            onClick={() => void openRoom()}
+            disabled={pending}
             className="inline-flex items-center gap-2 rounded-full border border-fault-ember/30 bg-fault-ember/10 px-4 py-2 font-display text-xs uppercase tracking-[0.22em] text-fault-flare transition hover:border-fault-flare hover:bg-fault-flare/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
-            {canCancelExpiredRoom ? "Annuler la partie" : "Ouvrir et rejoindre"}
+            Ouvrir la room
           </button>
         )}
       </div>

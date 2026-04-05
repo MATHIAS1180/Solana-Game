@@ -26,12 +26,6 @@ function createInstructionData(tag: number, parts: Uint8Array[] = []) {
 export async function createInitRoomIx(args: {
   programId: PublicKey;
   creator: PublicKey;
-  stakeLamports: bigint | number;
-  minPlayers: number;
-  maxPlayers: number;
-  joinWindowSlots: bigint | number;
-  commitWindowSlots: bigint | number;
-  revealWindowSlots: bigint | number;
   presetId: number;
 }) {
   const [roomPda] = await deriveRoomPda(args.programId, args.presetId);
@@ -47,14 +41,7 @@ export async function createInitRoomIx(args: {
       { pubkey: reservePda, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
     ],
-    data: createInstructionData(0, [
-      u64Bytes(args.stakeLamports),
-      Uint8Array.from([args.minPlayers, args.maxPlayers]),
-      u64Bytes(args.joinWindowSlots),
-      u64Bytes(args.commitWindowSlots),
-      u64Bytes(args.revealWindowSlots),
-      Uint8Array.from([args.presetId])
-    ])
+    data: createInstructionData(0, [Uint8Array.from([args.presetId])])
   });
 }
 
@@ -94,6 +81,28 @@ export function createSubmitCommitIx(args: {
       { pubkey: args.profile, isSigner: false, isWritable: true }
     ],
     data: createInstructionData(2, [args.commitHash])
+  });
+}
+
+export async function createJoinAndCommitIx(args: {
+  programId: PublicKey;
+  player: PublicKey;
+  room: PublicKey;
+  commitHash: Uint8Array;
+}) {
+  const [vaultPda] = await deriveVaultPda(args.programId, args.room);
+  const [profilePda] = await deriveProfilePda(args.programId, args.player);
+
+  return new TransactionInstruction({
+    programId: args.programId,
+    keys: [
+      { pubkey: args.player, isSigner: true, isWritable: true },
+      { pubkey: args.room, isSigner: false, isWritable: true },
+      { pubkey: vaultPda, isSigner: false, isWritable: true },
+      { pubkey: profilePda, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+    ],
+    data: createInstructionData(10, [args.commitHash])
   });
 }
 
@@ -183,6 +192,7 @@ export async function createCancelExpiredRoomIx(args: {
   programId: PublicKey;
   caller: PublicKey;
   room: PublicKey;
+  refundPlayers?: PublicKey[];
 }) {
   const [vaultPda] = await deriveVaultPda(args.programId, args.room);
 
@@ -192,7 +202,7 @@ export async function createCancelExpiredRoomIx(args: {
       { pubkey: args.caller, isSigner: false, isWritable: false },
       { pubkey: args.room, isSigner: false, isWritable: true },
       { pubkey: vaultPda, isSigner: false, isWritable: true }
-    ],
+    ].concat((args.refundPlayers || []).map((player) => ({ pubkey: player, isSigner: false, isWritable: true }))),
     data: createInstructionData(7)
   });
 }

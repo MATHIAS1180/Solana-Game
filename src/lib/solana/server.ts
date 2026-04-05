@@ -42,7 +42,7 @@ export function getServerConnection() {
 export function getServerProgramId() {
   const programId = getFaultlineProgramId();
   if (!programId) {
-    throw new Error("NEXT_PUBLIC_FAULTLINE_PROGRAM_ID est manquant ou invalide.");
+    throw new Error("Faultline Program ID invalide.");
   }
 
   return programId;
@@ -90,4 +90,8 @@ export async function sendRelayerTransaction(transaction: Transaction) {
 
 export function getRelayerPublicKey(): PublicKey {
   return getRelayerKeypair().publicKey;
+}
+
+export function hasRelayerConfiguration() {
+  return Boolean(process.env.FAULTLINE_RELAYER_SECRET_KEY?.trim());
 }

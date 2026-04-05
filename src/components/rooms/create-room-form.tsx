@@ -21,7 +21,7 @@ export function CreateRoomForm() {
           <p className="mt-2">Chaque mise dispose maintenant d'un lobby permanent visible en continu. La room on-chain est initialisee au premier usage, puis recyclee apres chaque partie au lieu d'etre fermee.</p>
         </div>
         <div>
-          <p className="mt-2">Le prochain joueur libre relance toujours le chrono et prend automatiquement la premiere place. Si la room expire sous le minimum de joueurs, les refunds sont claims puis la room revient a son etat de base.</p>
+          <p className="mt-2">Le joueur n'entre plus par un join seul depuis la liste. Il ouvre la room, choisit ses params puis envoie une seule transaction pour initialiser si besoin, rejoindre et commit. Si la room expire sous le minimum de joueurs, le reset peut refund les joueurs directement dans la meme transaction.</p>
         </div>
       </div>
 

@@ -2,7 +2,8 @@ import "server-only";
 
 import { PublicKey } from "@solana/web3.js";
 
-import { matchesDefaultRoomPreset } from "@/lib/faultline/constants";
+import { DEFAULT_ROOM_PRESETS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
+import { deriveRoomPda } from "@/lib/faultline/pdas";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import { selectVisibleSystemRooms } from "@/lib/faultline/system-rooms";
 import { serializeRoomAccount } from "@/lib/faultline/transport";
@@ -41,18 +42,44 @@ async function buildVisibleRoomsSnapshot() {
   };
 }
 
+async function findPresetIdForRoomAddress(roomAddress: string) {
+  const programId = getServerProgramId();
+
+  for (const preset of DEFAULT_ROOM_PRESETS) {
+    const [roomPda] = await deriveRoomPda(programId, preset.id);
+    if (roomPda.toBase58() === roomAddress) {
+      return preset.id;
+    }
+  }
+
+  return null;
+}
+
 async function buildRoomSnapshot(roomAddress: string) {
   const connection = getServerConnection();
   const roomKey = new PublicKey(roomAddress);
-  const [roomAccount, currentSlot] = await Promise.all([fetchRoom(connection, roomKey), connection.getSlot("confirmed")]);
+  const [roomAccount, currentSlot, presetId] = await Promise.all([
+    fetchRoom(connection, roomKey),
+    connection.getSlot("confirmed"),
+    findPresetIdForRoomAddress(roomAddress)
+  ]);
 
   if (!roomAccount) {
-    return null;
+    if (presetId === null) {
+      return null;
+    }
+
+    return {
+      currentSlot,
+      room: null,
+      presetId
+    };
   }
 
   return {
     currentSlot,
-    room: serializeRoomAccount(roomAccount)
+    room: serializeRoomAccount(roomAccount),
+    presetId: roomAccount.presetId
   };
 }
 

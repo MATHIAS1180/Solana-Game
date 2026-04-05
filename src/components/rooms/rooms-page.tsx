@@ -90,7 +90,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
             {DEFAULT_ROOM_PRESETS.map((preset) => {
               const room = rooms.find((item) => item.presetId === preset.id) ?? null;
 
-              return <RoomCard key={preset.id} preset={preset} room={room} currentSlot={currentSlot} onRefresh={refreshRooms} />;
+              return <RoomCard key={preset.id} preset={preset} room={room} currentSlot={currentSlot} />;
             })}
           </div>
 

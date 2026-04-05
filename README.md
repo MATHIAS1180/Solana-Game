@@ -39,9 +39,12 @@ Copier .env.example vers .env.local et renseigner au minimum:
 
 - NEXT_PUBLIC_SOLANA_NETWORK=devnet
 - NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
-- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr
 - NEXT_PUBLIC_SOLANA_EXPLORER_BASE_URL=https://explorer.solana.com
 - NEXT_PUBLIC_ENABLE_EMERGENCY_ACTIONS=false
+
+Optionnel:
+
+- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr
 
 Optionnel pour un backend d'automatisation avance:
 
@@ -74,7 +77,8 @@ Notes RPC:
 ## Mode simple
 
 - le smart contract ne s'auto-execute pas tout seul sur Solana
-- le premier joueur initialise la room persistante d'un preset si besoin puis reserve la premiere place
+- le premier joueur peut maintenant initialiser la room persistante d'un preset, la rejoindre et commit dans la meme transaction wallet
+- si une room ouverte expire sous le minimum de joueurs, la transaction d'annulation peut refund tous les joueurs directement et remettre aussitot le lobby a zero
 - apres une annulation ou un settlement complet, la room revient a l'etat de lobby au lieu d'etre fermee
 - sans stockage local du payload commit, le reveal manuel est impossible plus tard
 - toutes les actions de phase restantes sont permissionless et peuvent etre declenchees par n'importe quel visiteur
@@ -96,6 +100,7 @@ Instructions exposees:
 8. CancelExpiredRoom
 9. EmergencyReturn actuellement desactive et documente comme reserve
 10. CloseRoom utilise comme reset de compatibilite pour une room persistante deja soldee
+11. JoinAndCommit pour le flux joueur en une seule instruction on-chain
 
 ## Documentation complementaire
 

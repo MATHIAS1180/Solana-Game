@@ -63,7 +63,7 @@ Le programme du depot autorise desormais la creation de nouvelles rooms par n'im
 ## 2. Configurer le frontend local
 
 1. Copier .env.example vers .env.local.
-2. NEXT_PUBLIC_FAULTLINE_PROGRAM_ID doit pointer vers ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr.
+2. NEXT_PUBLIC_FAULTLINE_PROGRAM_ID peut pointer vers ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr, mais le frontend retombe deja sur cette valeur par defaut si elle n'est pas fournie.
 3. Verifier NEXT_PUBLIC_SOLANA_RPC_URL.
 4. Installer les dependances avec npm install.
 5. Lancer npm run dev.
@@ -76,9 +76,12 @@ Configurer les variables suivantes dans le projet Vercel:
 
 - NEXT_PUBLIC_SOLANA_NETWORK=devnet
 - NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
-- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr
 - NEXT_PUBLIC_SOLANA_EXPLORER_BASE_URL=https://explorer.solana.com
 - NEXT_PUBLIC_ENABLE_EMERGENCY_ACTIONS=false
+
+Optionnel:
+
+- NEXT_PUBLIC_FAULTLINE_PROGRAM_ID=ESRu4YMdPS7WHRLAcwRmm1rHBFyEoMm7Qrcn6KMhCNWr
 
 ### Variables optionnelles pour un backend d'automatisation
 
@@ -123,8 +126,8 @@ Cette section est optionnelle. Le mode simple du projet n'en a pas besoin.
 2. La page Rooms charge sans erreur RPC.
 3. Les presets de mise sont visibles sur la page Rooms.
 4. Un clic sur un preset initialise la room persistante si besoin, lance le chrono et reserve la premiere place du joueur.
-5. Le commit cree bien une entree locale IndexedDB et la transaction passe.
-6. Le flux Join + Commit peut se faire en une seule transaction depuis une room ouverte.
+5. Depuis la page de room, la premiere transaction peut creer la room si besoin, join et commit en une seule fois.
+6. Si une room est expiree sous le minimum, le prochain entrant peut provoquer refund + reset + join + commit dans le meme envoi.
 7. Le reveal manuel fonctionne tant que le payload commit est bien stocke localement.
 8. Les actions permissionless timeout, resolve, claim et cancel restent disponibles dans l'interface quand la phase l'exige.
 9. Resolve route les 2 pourcents de frais vers la treasury configuree.

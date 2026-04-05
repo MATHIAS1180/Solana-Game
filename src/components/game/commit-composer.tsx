@@ -8,7 +8,7 @@ import { LoaderCircle, Lock, ShieldAlert } from "lucide-react";
 
 import { PLAYER_STATUS, RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { buildCommitHash, generateNonce, validateForecast } from "@/lib/faultline/commit";
-import { createJoinRoomIx, createSubmitCommitIx } from "@/lib/faultline/instructions";
+import { createCancelExpiredRoomIx, createInitRoomIx, createJoinAndCommitIx, createSubmitCommitIx } from "@/lib/faultline/instructions";
 import { deriveProfilePda } from "@/lib/faultline/pdas";
 import { fetchRoom, findPlayerIndex } from "@/lib/faultline/rooms";
 import { persistCommitPayload } from "@/lib/faultline/storage";
@@ -29,10 +29,12 @@ function getDefaultForecast(room: FaultlineRoomAccount): Forecast {
 export function CommitComposer({
   room,
   playerIndex,
+  presetId = null,
   onCommitted
 }: {
   room: FaultlineRoomAccount;
   playerIndex: number;
+  presetId?: number | null;
   onCommitted: () => Promise<void>;
 }) {
   const { connection } = useConnection();
@@ -47,16 +49,14 @@ export function CommitComposer({
 
   const validation = useMemo(() => validateForecast(forecast, room.minPlayers, room.maxPlayers), [forecast, room.maxPlayers, room.minPlayers]);
 
-  async function loadLatestRoom() {
-    const latestRoom = await fetchRoom(connection, room.publicKey);
-    if (!latestRoom) {
-      throw new Error("La room est introuvable on-chain.");
-    }
-
-    return {
-      latestRoom,
-      currentSlot: await connection.getSlot("confirmed")
-    };
+  function isExpiredUnderMinPlayers(candidate: FaultlineRoomAccount, currentSlot: number) {
+    return (
+      candidate.status === ROOM_STATUS.Open &&
+      candidate.playerCount > 0 &&
+      Number(candidate.joinDeadlineSlot) > 0 &&
+      currentSlot > Number(candidate.joinDeadlineSlot) &&
+      candidate.playerCount < candidate.minPlayers
+    );
   }
 
   async function submitCommit() {
@@ -74,24 +74,30 @@ export function CommitComposer({
       setPending(true);
       setMessage(null);
 
-      const { latestRoom, currentSlot } = await loadLatestRoom();
-      const latestPlayerIndex = findPlayerIndex(latestRoom, publicKey);
+      const [latestRoom, currentSlot] = await Promise.all([fetchRoom(connection, room.publicKey), connection.getSlot("confirmed")]);
+      const latestPlayerIndex = latestRoom ? findPlayerIndex(latestRoom, publicKey) : -1;
+      const targetPresetId = latestRoom?.presetId ?? presetId;
+      const needsResetBeforeJoin = latestRoom ? isExpiredUnderMinPlayers(latestRoom, currentSlot) : false;
 
-      if (latestPlayerIndex === -1) {
-        if (
-          latestRoom.status !== ROOM_STATUS.Open ||
-          currentSlot > Number(latestRoom.joinDeadlineSlot) ||
-          latestRoom.playerCount >= latestRoom.maxPlayers
-        ) {
+      if (!latestRoom && targetPresetId === null) {
+        throw new Error("La room n'existe pas encore on-chain et aucun preset systeme n'est associe a cette page.");
+      }
+
+      if (latestRoom && latestPlayerIndex === -1 && !needsResetBeforeJoin) {
+        const joinDeadlineClosed = latestRoom.playerCount > 0 && Number(latestRoom.joinDeadlineSlot) > 0 && currentSlot > Number(latestRoom.joinDeadlineSlot);
+        if (latestRoom.status !== ROOM_STATUS.Open || joinDeadlineClosed || latestRoom.playerCount >= latestRoom.maxPlayers) {
           throw new Error("La room n'est plus joignable. Rafraichis la page pour recuperer une room active.");
         }
-      } else if (latestRoom.playerStatuses[latestPlayerIndex] !== PLAYER_STATUS.Joined) {
+      }
+
+      if (latestRoom && latestPlayerIndex !== -1 && latestRoom.playerStatuses[latestPlayerIndex] !== PLAYER_STATUS.Joined) {
         throw new Error("Cette participation n'attend plus de commit. Rafraichis la page.");
       }
 
       const nonce = generateNonce();
+      const targetRoomKey = latestRoom?.publicKey ?? room.publicKey;
       const payload = {
-        room: latestRoom.publicKey,
+        room: targetRoomKey,
         player: publicKey,
         zone,
         riskBand,
@@ -101,7 +107,7 @@ export function CommitComposer({
       const commitHash = buildCommitHash(payload);
 
       const storedPayload = {
-        room: latestRoom.publicKey.toBase58(),
+        room: targetRoomKey.toBase58(),
         player: publicKey.toBase58(),
         zone,
         riskBand,
@@ -113,24 +119,60 @@ export function CommitComposer({
 
       await persistCommitPayload(storedPayload);
 
-      const [profile] = await deriveProfilePda(programId, publicKey);
-      const instruction = createSubmitCommitIx({
-        programId,
-        player: publicKey,
-        room: latestRoom.publicKey,
-        profile,
-        commitHash
-      });
-
       const transaction = new Transaction();
-      if (latestPlayerIndex === -1) {
-        transaction.add(await createJoinRoomIx({ programId, player: publicKey, room: latestRoom.publicKey }));
+
+      if (!latestRoom) {
+        transaction.add(
+          await createInitRoomIx({
+            programId,
+            creator: publicKey,
+            presetId: targetPresetId!
+          })
+        );
+        transaction.add(
+          await createJoinAndCommitIx({
+            programId,
+            player: publicKey,
+            room: room.publicKey,
+            commitHash
+          })
+        );
+      } else if (latestPlayerIndex === -1) {
+        if (needsResetBeforeJoin) {
+          transaction.add(
+            await createCancelExpiredRoomIx({
+              programId,
+              caller: publicKey,
+              room: latestRoom.publicKey,
+              refundPlayers: latestRoom.playerKeys.slice(0, latestRoom.playerCount)
+            })
+          );
+        }
+
+        transaction.add(
+          await createJoinAndCommitIx({
+            programId,
+            player: publicKey,
+            room: latestRoom.publicKey,
+            commitHash
+          })
+        );
+      } else {
+        const [profile] = await deriveProfilePda(programId, publicKey);
+        transaction.add(
+          createSubmitCommitIx({
+            programId,
+            player: publicKey,
+            room: latestRoom.publicKey,
+            profile,
+            commitHash
+          })
+        );
       }
-      transaction.add(instruction);
 
       await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
       setMessage(
-        `${latestPlayerIndex === -1 ? "Join + commit confirmes" : "Commit verrouille"} pour ${shortKey(latestRoom.publicKey)}. Le payload est garde localement pour le reveal manuel.`
+        `${!latestRoom ? "Creation + join + commit confirmes" : latestPlayerIndex === -1 ? "Join + commit confirmes" : "Commit verrouille"} pour ${shortKey(room.publicKey)}. Le payload est garde localement pour le reveal manuel.`
       );
       await onCommitted();
     } catch (error) {
