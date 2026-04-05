@@ -19,6 +19,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9
     },
     {
+      url: `${siteUrl}/arena`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.9
+    },
+    {
+      url: `${siteUrl}/how-it-works`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8
+    },
+    {
       url: `${siteUrl}/watch`,
       lastModified: new Date(),
       changeFrequency: "hourly",

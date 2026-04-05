@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { ProgramBanner } from "@/components/game/program-banner";
 import { ROOM_STATUS, ROOM_STATUS_LABELS } from "@/lib/faultline/constants";
@@ -9,6 +10,22 @@ import { deserializeRoomAccount } from "@/lib/faultline/transport";
 import { formatCountdown, formatLamports, shortKey } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Watch Live",
+  description: "Watch live Faultline Arena rooms, reveal pressure, recent settlements, and the persistent on-chain ladder.",
+  alternates: { canonical: "/watch" },
+  openGraph: {
+    title: "Watch Live - Faultline Arena",
+    description: "Follow live lanes, reveal pressure, and fresh replays across Faultline Arena.",
+    url: "/watch"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Watch Live - Faultline Arena",
+    description: "Follow live lanes, reveal pressure, and fresh replays across Faultline Arena."
+  }
+};
 
 function getWindowLabel(status: number, currentSlot: number, room: { joinDeadlineSlot: bigint; commitDeadlineSlot: bigint; revealDeadlineSlot: bigint }) {
   if (status === ROOM_STATUS.Open) {

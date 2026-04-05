@@ -7,6 +7,8 @@ import { PublicKey, Transaction } from "@solana/web3.js";
 import { Download, Eye, LoaderCircle, ShieldCheck, TriangleAlert, Upload } from "lucide-react";
 
 import { TransactionSpeedControl } from "@/components/game/transaction-speed-control";
+import { HistogramBar } from "@/components/ui/histogram-bar";
+import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast-provider";
 import { buildCommitHash, parseStoredCommitPayload, toHex } from "@/lib/faultline/commit";
 import { RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
@@ -250,7 +252,7 @@ export function RevealPanel({
       await deleteStoredCommitPayload(room.publicKey.toBase58(), publicKey.toBase58());
       void clearRelayBackup(room.publicKey.toBase58(), publicKey.toBase58());
       toast({
-        tone: "success",
+        tone: "game",
         title: "Reveal confirmed",
         description: "Your hidden read matched the stored commit and is now part of the live room outcome.",
         durationMs: 5800
@@ -270,29 +272,35 @@ export function RevealPanel({
   if (!record) {
     return (
       <div className="fault-card rounded-[1.75rem] p-6">
-        <div className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.22em] text-fault-flare">
-          <TriangleAlert className="size-4" />
-          Reveal unavailable
+        <div className="arena-editorial-panel rounded-[1.6rem] p-5">
+          <div className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.22em] text-fault-flare">
+            <TriangleAlert className="size-4" />
+            Reveal unavailable
+          </div>
+          <h2 className="mt-3 font-display text-3xl text-white">The browser no longer holds the sealed payload.</h2>
+          <p className="mt-3 text-sm leading-7 text-white/72">
+            Without the original nonce and forecast, this seat cannot reveal manually from this device.
+          </p>
         </div>
-        <p className="mt-4 text-sm leading-7 text-white/70">
-          The committed payload was not found locally for this wallet and room. Without the original nonce and forecast, this seat cannot prove what it locked earlier.
-        </p>
+
         <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/72">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Recovery posture</p>
+          <div className="flex flex-wrap gap-2">
+            <span className="arena-chip" data-tone={relayRecoveryStatus.mirrored ? "signal" : "ember"}>
+              {relayRecoveryStatus.mirrored ? "Relay mirror found" : "No relay mirror"}
+            </span>
+            <span className="arena-chip" data-tone={relayRecoveryStatus.configured ? "flare" : "ember"}>
+              {relayRecoveryStatus.configured ? `Retention ${relayRecoveryStatus.ttlDays}d` : "Relay disabled"}
+            </span>
+          </div>
           <p className="mt-3 text-white/82">
             {relayRecoveryStatus.checking
               ? "Checking whether a relay mirror still exists for this seat."
               : relayRecoveryStatus.mirrored
-                ? `A relay mirror still exists for this room and wallet. If automation is active, it can auto-reveal this seat during the reveal phase for up to ${relayRecoveryStatus.ttlDays} days after commit.`
+                ? `A relay mirror still exists for this room and wallet. Automation can still protect this reveal for up to ${relayRecoveryStatus.ttlDays} days after commit.`
                 : relayRecoveryStatus.configured
-                  ? "No relay mirror was found for this seat. Manual reveal now requires an exported recovery file from the original commit device."
+                  ? "No relay mirror was found for this seat. Manual reveal now requires an exported recovery file."
                   : relayRecoveryStatus.error ?? "Relay recovery is not configured here, so only exported recovery files can restore manual reveal on another device."}
           </p>
-          {relayRecoveryStatus.mirrored ? (
-            <p className="mt-3 text-white/62">
-              The relay mirror is enough for automated reveal protection, but it does not expose the clear payload back to the browser. Import a recovery file only if you want manual control from this device.
-            </p>
-          ) : null}
         </div>
         <input
           ref={fileInputRef}
@@ -323,10 +331,10 @@ export function RevealPanel({
     <div className="fault-card rounded-[1.75rem] p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="arena-kicker">Reveal Step</p>
-          <h2 className="mt-3 font-display text-2xl text-white">Break the seal only when the proof path is clean.</h2>
+          <p className="arena-kicker">Reveal</p>
+          <h2 className="mt-3 font-display text-2xl text-white">Open the exact sealed read.</h2>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68">
-            Reveal must replay the exact hidden payload. Any mismatch breaks the proof, so this step is binary: exact or invalid.
+            This step is binary: the stored payload matches the seal, or it does not.
           </p>
         </div>
         <Eye className="size-5 text-fault-flare" />
@@ -342,49 +350,38 @@ export function RevealPanel({
           <span className="arena-chip">Round #{record.roundId}</span>
         </div>
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Integrity path</p>
-            <h3 className={cn("mt-3 font-display text-3xl text-white", !integrity?.matches && "text-fault-flare")}>{integrity?.matches ? "Byte-for-byte match confirmed" : "The stored payload no longer matches the seal"}</h3>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/72">
-              The protocol recomputes the commit hash from the exact room, wallet, round id, zone, risk band, forecast, and nonce. Only an exact match can open the envelope.
-            </p>
+        <h3 className={cn("mt-5 font-display text-3xl text-white", !integrity?.matches && "text-fault-flare")}>
+          {integrity?.matches ? "Byte-for-byte match confirmed" : "The stored payload no longer matches the seal"}
+        </h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit hash</p>
+            <p className="mt-2 font-mono text-white">{integrity?.shortHash}</p>
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
-              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit hash</p>
-              <p className="mt-2 font-mono text-white">{integrity?.shortHash}</p>
-            </div>
-            <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
-              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Local commit time</p>
-              <p className="mt-2 text-white">{integrity?.createdLabel}</p>
-            </div>
-            <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74 sm:col-span-2">
-              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reveal outcome</p>
-              <p className={cn("mt-2 text-white", integrity?.matches ? "text-fault-signal" : "text-fault-flare")}>{integrity?.matches ? "This envelope can be opened on-chain." : "Import a valid recovery file before attempting reveal."}</p>
-            </div>
+          <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Local commit time</p>
+            <p className="mt-2 text-white">{integrity?.createdLabel}</p>
           </div>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-4">
-        <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Zone</p>
-          <p className="mt-2 text-xl text-white">{ZONE_LABELS[record.zone]}</p>
-        </div>
-        <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Risk band</p>
-          <p className="mt-2 text-xl text-white">{RISK_LABELS[record.riskBand]}</p>
-        </div>
-        <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Forecast</p>
-          <p className="mt-2 font-mono text-xl text-white">[{record.forecast.join(", ")}]</p>
-        </div>
-        <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Forecast total</p>
-          <p className="mt-2 text-xl text-white">{forecastTotal}</p>
-        </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <StatCard label="Zone" value={ZONE_LABELS[record.zone]} subtext="Lane encoded in the sealed payload." />
+        <StatCard label="Risk band" value={RISK_LABELS[record.riskBand]} subtext="Payout posture encoded at commit time." />
+        <StatCard label="Forecast total" value={forecastTotal} subtext="Final population implied by this seal." />
+      </div>
+
+      <div className="mt-6 grid gap-3 lg:grid-cols-5">
+        {record.forecast.map((value, index) => (
+          <HistogramBar
+            key={`${ZONE_LABELS[index]}-reveal`}
+            label={ZONE_LABELS[index]}
+            value={value}
+            total={forecastTotal}
+            highlighted={record.zone === index}
+            tone={record.zone === index ? "flare" : "signal"}
+          />
+        ))}
       </div>
 
       <div className="mt-6">
@@ -392,6 +389,15 @@ export function RevealPanel({
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => void reveal()}
+          disabled={pending || !integrity?.matches}
+          className="arena-primary inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Eye className="size-4" />}
+          Reveal exact read
+        </button>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -403,22 +409,12 @@ export function RevealPanel({
         <button
           type="button"
           onClick={exportRecoveryFile}
-          className="arena-secondary inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em]"
+          className="arena-secondary inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em] sm:col-span-2"
         >
           <Download className="size-4" />
           Export sealed backup
         </button>
       </div>
-
-      <button
-        type="button"
-        onClick={() => void reveal()}
-        disabled={pending || !integrity?.matches}
-        className="arena-secondary mt-6 inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Eye className="size-4" />}
-        Break seal and reveal exact read
-      </button>
     </div>
   );
 }

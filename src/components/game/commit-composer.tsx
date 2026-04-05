@@ -7,7 +7,11 @@ import { Transaction } from "@solana/web3.js";
 import { Flame, LoaderCircle, Lock, ShieldAlert, Target } from "lucide-react";
 
 import { TransactionSpeedControl } from "@/components/game/transaction-speed-control";
+import { ForecastInput } from "@/components/ui/forecast-input";
+import { RiskBandSelector } from "@/components/ui/risk-band-selector";
+import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast-provider";
+import { ZoneSelector } from "@/components/ui/zone-selector";
 import { FAULTLINE_COMMIT_VERSION, PLAYER_STATUS, RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { buildCommitHash, generateNonce, validateForecast } from "@/lib/faultline/commit";
 import { createCancelExpiredRoomIx, createInitRoomIx, createJoinAndCommitIx, createSubmitCommitIx } from "@/lib/faultline/instructions";
@@ -88,6 +92,20 @@ async function storeRelayBackup(record: StoredCommitPayload) {
     throw new Error(payload?.error || "The relay backup could not be stored.");
   }
 }
+
+const ZONE_NOTES = [
+  "Outer-left pressure pocket.",
+  "Left-center compression lane.",
+  "Central gravity and crowd crush.",
+  "Right-center imbalance lane.",
+  "Outer-right pressure pocket."
+] as const;
+
+const RISK_NOTES = [
+  "More forgiving band that stays alive across wider distributions.",
+  "Balanced conviction when you expect a cleaner pocket than the room.",
+  "Highest payout pressure. Wins only when your lane stays exceptionally clean."
+] as const;
 
 export function CommitComposer({
   room,
@@ -361,7 +379,7 @@ export function CommitComposer({
           }));
         } catch (backupError) {
           toast({
-            tone: "info",
+            tone: "warning",
             title: "Commit confirmed, relay backup skipped",
             description:
               backupError instanceof Error
@@ -376,7 +394,7 @@ export function CommitComposer({
         downloadCommitBackup(storedPayload);
       }
       toast({
-        tone: "success",
+        tone: "game",
         title: !latestRoom ? "Room opened and read locked" : latestPlayerIndex === -1 ? "Seat claimed and read locked" : "Read locked",
         description: relayBackupStored
           ? `Your reveal key was saved locally for ${shortKey(room.publicKey)}, mirrored to the relay for 7-day recovery, and ready for cross-device reveal.`
@@ -416,208 +434,159 @@ export function CommitComposer({
         <Lock className="size-5 text-fault-flare" />
       </div>
 
-      <div className="mt-6 space-y-5">
-        <div>
-          <p className="text-sm text-white/70">Target zone</p>
-          <p className="mt-2 text-sm leading-6 text-white/52">Pick the zone you believe will finish with the best crowd imbalance once all reveals are in.</p>
-          <div className="arena-mobile-strip fault-scrollbar mt-3">
-            <div className="grid grid-cols-5 gap-2">
-              {ZONE_LABELS.map((label, index) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setZone(index as Zone)}
-                  className={`rounded-2xl border px-3 py-4 text-center text-sm font-semibold uppercase tracking-[0.18em] transition ${zone === index ? "border-fault-ember bg-fault-ember text-fault-basalt" : "border-white/10 bg-black/20 text-white/70 hover:border-white/30"}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <p className="text-sm text-white/70">Risk band</p>
-          <p className="mt-2 text-sm leading-6 text-white/52">Higher bands pay for precision. Lower bands survive broader player traffic.</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            {RISK_LABELS.map((label, index) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setRiskBand(index as RiskBand)}
-                className={`rounded-2xl border px-4 py-4 text-left transition ${riskBand === index ? "border-fault-flare bg-fault-flare/10 text-white" : "border-white/10 bg-black/20 text-white/70 hover:border-white/30"}`}
-              >
-                <span className="font-display text-lg">{label}</span>
-                <span className="mt-2 block text-xs uppercase tracking-[0.22em] text-white/48">
-                  {index === 0 ? "Stays live across wider outcomes" : index === 1 ? "Wins by reading lighter pockets" : "Only wins on the cleanest lane"}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between text-sm text-white/70">
-            <p>Forecast vector</p>
-            <p className={validation.valid ? "text-emerald-200" : "text-fault-flare"}>Total {validation.total}</p>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-white/52">Model how many total players you expect in each zone at resolution. Your error is measured against this final histogram.</p>
-          <div className="mt-4 grid gap-2 md:grid-cols-4">
-            {forecastPresets.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => setForecast([...preset.forecast] as Forecast)}
-                className="rounded-2xl border border-white/10 bg-black/20 p-3 text-left text-white/74 transition hover:border-white/25 hover:text-white"
-              >
-                <p className="font-display text-base text-white">{preset.label}</p>
-                <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-white/45">{preset.detail}</p>
-                <p className="mt-2 font-mono text-xs text-white/62">[{preset.forecast.join(", ")}]</p>
-              </button>
-            ))}
-          </div>
-          <div className="arena-mobile-strip fault-scrollbar mt-3">
-            <div className="grid grid-cols-5 gap-2">
-              {forecast.map((value, index) => (
-                <label key={index} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center text-white/75">
-                  <span className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">{ZONE_LABELS[index]}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={room.maxPlayers}
-                    value={value}
-                    onChange={(event) => {
-                      const next = [...forecast] as Forecast;
-                      next[index] = Number(event.target.value);
-                      setForecast(next);
-                    }}
-                    className="mt-2 w-full bg-transparent text-center text-xl text-white outline-none"
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="mt-4 grid gap-2 md:grid-cols-5">
-            {forecast.map((value, index) => {
-              const share = validation.total > 0 ? (value / validation.total) * 100 : 0;
-              return (
-                <div key={`${ZONE_LABELS[index]}-pressure`} className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                  <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
-                    <span>{ZONE_LABELS[index]}</span>
-                    <span>{share.toFixed(0)}%</span>
-                  </div>
-                  <div className="mt-3 h-2 rounded-full bg-white/10">
-                    <div className={cn("h-2 rounded-full bg-gradient-to-r", index === zone ? "from-fault-flare to-fault-ember" : "from-fault-signal/70 to-white/40")} style={{ width: `${share}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/70">
-            <p className="inline-flex items-center gap-2 text-fault-flare">
-              <Target className="size-4" />
-              Projection if your room read lands exactly.
-            </p>
-            {projectedOutcome ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
-                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Projected field</p>
-                  <p className="mt-2 text-xl text-white">{projectedOutcome.projectedPlayers} players</p>
-                </div>
-                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
-                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Top payout</p>
-                  <p className="mt-2 text-xl text-white">{formatLamports(projectedOutcome.topPayout)}</p>
-                </div>
-                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
-                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Cash line</p>
-                  <p className="mt-2 text-xl text-white">{formatLamports(projectedOutcome.cashLine)}</p>
-                </div>
-                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
-                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Risk multiplier</p>
-                  <p className="mt-2 text-xl text-white">x{(projectedOutcome.multiplier / 10000).toFixed(2)}</p>
-                </div>
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+        <div className="space-y-5">
+          <div className="arena-surface rounded-[1.6rem] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Target zone</p>
+                <p className="mt-2 text-sm leading-6 text-white/58">Pick the lane you believe ends with the cleanest imbalance after every reveal lands.</p>
               </div>
+              <span className="arena-chip" data-tone="flare">Zone {ZONE_LABELS[zone]}</span>
+            </div>
+            <div className="mt-4">
+              <ZoneSelector
+                value={zone}
+                options={ZONE_LABELS.map((label, index) => ({ label, note: ZONE_NOTES[index] }))}
+                onChange={(value) => setZone(value as Zone)}
+              />
+            </div>
+          </div>
+
+          <div className="arena-surface rounded-[1.6rem] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Risk band</p>
+                <p className="mt-2 text-sm leading-6 text-white/58">Higher bands pay for sharper crowd reads. Lower bands survive wider distribution error.</p>
+              </div>
+              <span className="arena-chip" data-tone="signal">{RISK_LABELS[riskBand]}</span>
+            </div>
+            <div className="mt-4">
+              <RiskBandSelector
+                value={riskBand}
+                options={RISK_LABELS.map((label, index) => ({ label, note: RISK_NOTES[index] }))}
+                onChange={(value) => setRiskBand(value as RiskBand)}
+              />
+            </div>
+          </div>
+
+          <div className="arena-surface rounded-[1.6rem] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Forecast vector</p>
+                <p className="mt-2 text-sm leading-6 text-white/58">Price the final histogram itself. Accuracy is measured against this exact five-lane map.</p>
+              </div>
+              <span className={cn("arena-chip", validation.valid ? "text-emerald-200" : "text-fault-flare")}>Total {validation.total}</span>
+            </div>
+            <div className="mt-4">
+              <ForecastInput
+                forecast={forecast}
+                labels={ZONE_LABELS}
+                maxValue={room.maxPlayers}
+                total={validation.total}
+                highlightedIndex={zone}
+                presets={forecastPresets}
+                onPreset={setForecast}
+                onChange={setForecast}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="arena-editorial-panel rounded-[1.6rem] p-5">
+            <p className="inline-flex items-center gap-2 text-fault-signal">
+              <Flame className="size-4" />
+              Read recap before signature
+            </p>
+            <h3 className="mt-3 font-display text-3xl text-white">Zone {ZONE_LABELS[zone]} with {RISK_LABELS[riskBand]}.</h3>
+            <p className="mt-3 text-sm leading-7 text-white/74">Forecast [{forecast.join(", ")}]. You are not picking a move. You are pricing where everyone else lands, then sealing that read before public truth catches up.</p>
+            {projectedOutcome ? (
+              <p className="mt-4 text-sm leading-7 text-white/62">
+                Your selected lane carries {projectedOutcome.zoneLoad} predicted players while the cleanest competing lane sits at {projectedOutcome.cleanestLoad}. This is a conviction bet, not a passive entry.
+              </p>
             ) : (
-              <p className="mt-3 text-white/62">Fix the forecast total first to unlock the payout projection.</p>
+              <p className="mt-4 text-sm leading-7 text-fault-flare">The histogram total must stay between {room.minPlayers} and {room.maxPlayers} before the room can price this read.</p>
             )}
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/70">
-            <p className="inline-flex items-center gap-2 text-fault-signal">
-              <Flame className="size-4" />
-              Read recap before signature.
+          <div className="arena-surface rounded-[1.6rem] p-5">
+            <p className="inline-flex items-center gap-2 text-fault-flare">
+              <Target className="size-4" />
+              Projection if this read lands exactly
             </p>
-            <p className="mt-3 text-white/82">Zone {ZONE_LABELS[zone]} with {RISK_LABELS[riskBand]} on forecast [{forecast.join(", ")}]</p>
             {projectedOutcome ? (
-              <p className="mt-3 text-white/68">
-                Your chosen lane carries {projectedOutcome.zoneLoad} predicted players while the cleanest lane in this forecast sits at {projectedOutcome.cleanestLoad}. This is a conviction bet, not a random entry.
-              </p>
-            ) : null}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <StatCard label="Projected field" value={`${projectedOutcome.projectedPlayers} players`} subtext="Expected final population if your histogram is right." />
+                <StatCard label="Top payout" value={formatLamports(projectedOutcome.topPayout)} subtext="Best possible paid finish from this lane." trend="up" />
+                <StatCard label="Cash line" value={formatLamports(projectedOutcome.cashLine)} subtext="Approximate payout cutoff with this field size." />
+                <StatCard label="Risk multiplier" value={`x${(projectedOutcome.multiplier / 10000).toFixed(2)}`} subtext={`Base score ${projectedOutcome.baseScore}`} />
+              </div>
+            ) : (
+              <p className="mt-4 text-sm leading-7 text-white/62">Fix the forecast total first to unlock payout and field projections.</p>
+            )}
           </div>
-        </div>
 
-        <TransactionSpeedControl value={transactionSpeed} onChange={setTransactionSpeed} />
-
-        <div className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/70">
-          <p className="inline-flex items-center gap-2 text-fault-flare">
-            <ShieldAlert className="size-4" />
-            The nonce and clear payload are stored locally before send. Lose this browser state and your manual reveal path is gone.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="arena-chip" data-tone="signal">Local vault active</span>
-            <span className="arena-chip" data-tone={relayRecoveryStatus.configured ? "signal" : "ember"}>
-              {relayRecoveryStatus.checking
-                ? "Checking relay recovery"
-                : relayRecoveryStatus.configured
-                  ? `Relay recovery available for ${relayRecoveryStatus.ttlDays} days`
-                  : "Relay recovery unavailable on this deployment"}
-            </span>
-            <span className="arena-chip" data-tone={hasPortableRecoveryPath ? "flare" : "ember"}>
-              {hasPortableRecoveryPath ? "Portable recovery armed" : "Portable recovery missing"}
-            </span>
-          </div>
-          <label className="mt-4 flex items-center gap-3 text-sm text-white/78">
-            <input
-              type="checkbox"
-              checked={downloadBackup}
-              onChange={(event) => setDownloadBackup(event.target.checked)}
-              className="h-4 w-4 rounded border-white/20 bg-transparent accent-[#ffd166]"
-            />
-            Download a recovery file after the commit confirms.
-          </label>
-          <label className="mt-3 flex items-start gap-3 text-sm text-white/78">
-            <input
-              type="checkbox"
-              checked={storeRelayRecovery}
-              onChange={(event) => setStoreRelayRecovery(event.target.checked)}
-              disabled={!relayRecoveryStatus.configured}
-              className="mt-1 h-4 w-4 rounded border-white/20 bg-transparent accent-[#7df9ff]"
-            />
-            <span>
-              Mirror this reveal payload to the automation relay for 7-day cross-device recovery.
-              <span className="mt-1 block text-white/52">
+          <div className="arena-surface rounded-[1.6rem] p-5 text-sm leading-7 text-white/72">
+            <p className="inline-flex items-center gap-2 text-fault-flare">
+              <ShieldAlert className="size-4" />
+              Reveal recovery posture
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="arena-chip" data-tone="signal">Local vault active</span>
+              <span className="arena-chip" data-tone={relayRecoveryStatus.configured ? "signal" : "ember"}>
                 {relayRecoveryStatus.checking
-                  ? "Checking whether the relay mirror is available for this deployment."
+                  ? "Checking relay recovery"
                   : relayRecoveryStatus.configured
-                    ? "Opt-in only: this stores the clear reveal payload server-side so the relay can auto-reveal or preserve cross-device recoverability."
-                    : relayRecoveryStatus.error ?? "Relay recovery is not configured here, so only local storage and exported files can protect manual reveal."}
+                    ? `Relay recovery ${relayRecoveryStatus.ttlDays}d`
+                    : "Relay recovery unavailable"}
               </span>
-            </span>
-          </label>
-        </div>
+              <span className="arena-chip" data-tone={hasPortableRecoveryPath ? "flare" : "ember"}>
+                {hasPortableRecoveryPath ? "Portable recovery armed" : "Portable recovery missing"}
+              </span>
+            </div>
+            <label className="mt-4 flex items-center gap-3 text-sm text-white/78">
+              <input
+                type="checkbox"
+                checked={downloadBackup}
+                onChange={(event) => setDownloadBackup(event.target.checked)}
+                className="h-4 w-4 rounded border-white/20 bg-transparent accent-[#ffd166]"
+              />
+              Download a recovery file after confirmation.
+            </label>
+            <label className="mt-3 flex items-start gap-3 text-sm text-white/78">
+              <input
+                type="checkbox"
+                checked={storeRelayRecovery}
+                onChange={(event) => setStoreRelayRecovery(event.target.checked)}
+                disabled={!relayRecoveryStatus.configured}
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-transparent accent-[#7df9ff]"
+              />
+              <span>
+                Mirror this reveal payload to the relay for 7-day cross-device recovery.
+                <span className="mt-1 block text-white/52">
+                  {relayRecoveryStatus.checking
+                    ? "Checking whether the relay mirror is available for this deployment."
+                    : relayRecoveryStatus.configured
+                      ? "Opt-in only: the clear reveal payload is mirrored server-side so automation can protect the seat if this browser disappears."
+                      : relayRecoveryStatus.error ?? "Only local storage and exported files can protect manual reveal on this deployment."}
+                </span>
+              </span>
+            </label>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => void submitCommit()}
-          disabled={pending}
-          className="arena-primary inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Lock className="size-4" />}
-          {isJoined ? "Lock prediction" : "Enter and lock read"}
-        </button>
+          <TransactionSpeedControl value={transactionSpeed} onChange={setTransactionSpeed} />
+
+          <button
+            type="button"
+            onClick={() => void submitCommit()}
+            disabled={pending}
+            className="arena-primary inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Lock className="size-4" />}
+            {isJoined ? "Lock prediction" : "Enter and lock read"}
+          </button>
+        </div>
       </div>
     </div>
   );

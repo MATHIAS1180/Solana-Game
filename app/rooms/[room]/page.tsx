@@ -26,10 +26,10 @@ export async function generateMetadata({ params }: { params: Promise<{ room: str
       canonical: `/rooms/${room}`
     },
     robots: {
-      index: false,
+      index: true,
       follow: true,
       googleBot: {
-        index: false,
+        index: true,
         follow: true
       }
     },

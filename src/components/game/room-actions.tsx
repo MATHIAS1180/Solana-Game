@@ -4,9 +4,11 @@ import { useState } from "react";
 
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
-import { Ban, Coins, Gavel, LoaderCircle, LockKeyhole, Sparkle, TimerReset } from "lucide-react";
+import { Ban, Coins, Gavel, LoaderCircle, LockKeyhole, Sparkle } from "lucide-react";
 
 import { TransactionSpeedControl } from "@/components/game/transaction-speed-control";
+import { Countdown } from "@/components/ui/countdown";
+import { PhaseBadge } from "@/components/game/phase-badge";
 import { useToast } from "@/components/ui/toast-provider";
 import { PLAYER_STATUS, ROOM_STATUS } from "@/lib/faultline/constants";
 import {
@@ -18,7 +20,7 @@ import {
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { sendAndConfirm, type TransactionSpeed } from "@/lib/solana/transactions";
-import { cn, formatCountdown, formatLamports } from "@/lib/utils";
+import { cn, formatLamports } from "@/lib/utils";
 
 function getDeadlineUrgency(remaining: number | null) {
   if (remaining === null) {
@@ -138,7 +140,7 @@ export function RoomActions({
       });
       await onRefresh();
       toast({
-        tone: "success",
+        tone: "game",
         title: `${label} confirmed`,
         description: "The room state has been refreshed from confirmed Solana data."
       });
@@ -159,46 +161,35 @@ export function RoomActions({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="arena-kicker">Room Actions</p>
-            <h2 className="mt-3 font-display text-2xl text-white">Advance, settle, or collect without waiting for an operator.</h2>
+            <h2 className="mt-3 font-display text-2xl text-white">Only the actions that matter right now.</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68">
-              Faultline rooms are built to keep moving. If a deadline expires, any participant or spectator can push the state machine ahead.
+              If a timer expires, anyone can move the room forward. If you cashed, claim here.
             </p>
           </div>
-          <div className="rounded-full border border-white/10 bg-black/25 px-4 py-2 text-sm text-white/68">
-            Network slot {currentSlot}
+          <div className="flex flex-col items-end gap-2">
+            <PhaseBadge status={room.status} detail={`${availableActions} action${availableActions === 1 ? "" : "s"}`} compact />
+            <div className="rounded-full border border-white/10 bg-black/25 px-4 py-2 text-sm text-white/68">Network slot {currentSlot}</div>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-[1.15fr_0.85fr]">
-          <div className="arena-surface arena-grid-glow arena-live-clock-shell rounded-[1.5rem] p-4" data-urgency={liveWindowUrgency}>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="arena-chip" data-tone="signal">
-                <TimerReset className="size-3.5" />
-                {availableActions} live action{availableActions === 1 ? "" : "s"}
+        <div className="mt-6 arena-surface arena-grid-glow arena-live-clock-shell rounded-[1.5rem] p-4" data-urgency={liveWindowUrgency}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="arena-chip" data-tone="signal">{availableActions} live action{availableActions === 1 ? "" : "s"}</span>
+            <span className="arena-chip" data-tone={liveWindowUrgency === "critical" || liveWindowUrgency === "expired" ? "ember" : "flare"}>
+              {room.status === ROOM_STATUS.Open ? "Join" : room.status === ROOM_STATUS.Commit ? "Commit" : room.status === ROOM_STATUS.Reveal ? "Reveal" : "Settled"}
+            </span>
+            {isJoined ? (
+              <span className="arena-chip" data-tone="flare">
+                <LockKeyhole className="size-3.5" />
+                {reward > 0n ? `Claim ${formatLamports(reward)}` : "Seat active"}
               </span>
-              <span className="arena-chip" data-tone={liveWindowUrgency === "critical" || liveWindowUrgency === "expired" ? "ember" : "flare"}>
-                {room.status === ROOM_STATUS.Open ? "Join pressure" : room.status === ROOM_STATUS.Commit ? "Commit pressure" : room.status === ROOM_STATUS.Reveal ? "Reveal pressure" : "Round settled"}
-              </span>
-              {isJoined ? (
-                <span className="arena-chip" data-tone="flare">
-                  <LockKeyhole className="size-3.5" />
-                  Your potential payout {reward > 0n ? formatLamports(reward) : "pending"}
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-4 font-mono text-xs uppercase tracking-[0.22em] text-white/45">What matters now</p>
-            <p className={cn("arena-live-countdown mt-3 font-display text-3xl text-white", liveWindowUrgency === "critical" && "arena-urgent-text", liveWindowUrgency === "hot" && "arena-hot-text")}>
-              {liveWindowRemaining === null ? "No live clock" : formatCountdown(liveWindowRemaining)}
-            </p>
-            <p className="mt-4 text-sm leading-7 text-white/68">{nextWindowLabel}</p>
+            ) : null}
           </div>
-
-          <div className="arena-surface rounded-[1.5rem] p-4 text-sm text-white/68">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Permissionless model</p>
-            <p className="mt-3 leading-7">
-              Anyone can move expired rooms forward. That keeps payout, refunds, and resolution trust-minimized even when original players disappear.
-            </p>
-          </div>
+          <p className="mt-4 font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live clock</p>
+          <p className={cn("mt-3 font-display text-3xl text-white", liveWindowUrgency === "critical" && "arena-urgent-text", liveWindowUrgency === "hot" && "arena-hot-text")}>
+            {liveWindowRemaining === null ? "No live clock" : <Countdown targetSlot={currentSlot + liveWindowRemaining} currentSlot={currentSlot} urgencyAt={75} />}
+          </p>
+          <p className="mt-4 text-sm leading-7 text-white/68">{nextWindowLabel}</p>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -275,27 +266,6 @@ export function RoomActions({
 
         <div className="mt-6">
           <TransactionSpeedControl value={transactionSpeed} onChange={setTransactionSpeed} compact />
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="arena-stat arena-deadline-card arena-fade-in rounded-2xl p-4 text-sm text-white/72" data-urgency={getDeadlineUrgency(joinRemaining)}>
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Join deadline</p>
-            <p className={cn("mt-2 text-white", getDeadlineUrgency(joinRemaining) === "critical" && "arena-urgent-text")}>
-              {joinRemaining === null ? "opens with the next entrant" : formatCountdown(joinRemaining)}
-            </p>
-          </div>
-          <div className="arena-stat arena-deadline-card arena-fade-in arena-delay-1 rounded-2xl p-4 text-sm text-white/72" data-urgency={getDeadlineUrgency(commitRemaining)}>
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit deadline</p>
-            <p className={cn("mt-2 text-white", getDeadlineUrgency(commitRemaining) === "critical" && "arena-urgent-text")}>
-              {commitRemaining === null ? "not started" : formatCountdown(commitRemaining)}
-            </p>
-          </div>
-          <div className="arena-stat arena-deadline-card arena-fade-in arena-delay-2 rounded-2xl p-4 text-sm text-white/72" data-urgency={getDeadlineUrgency(revealRemaining)}>
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reveal deadline</p>
-            <p className={cn("mt-2 text-white", getDeadlineUrgency(revealRemaining) === "critical" && "arena-urgent-text")}>
-              {revealRemaining === null ? "not started" : formatCountdown(revealRemaining)}
-            </p>
-          </div>
         </div>
       </div>
     </div>

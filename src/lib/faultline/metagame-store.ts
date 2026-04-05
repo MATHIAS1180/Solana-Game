@@ -168,6 +168,12 @@ export async function getRecentPersistentRounds(limit = 10) {
   return rounds.sort((left, right) => Number(BigInt(right.resolveSlot) - BigInt(left.resolveSlot))).slice(0, limit);
 }
 
+export async function getAllPersistentRounds() {
+  const ids = getRedis() ? await listRoundIds() : [...memoryRoundIndex];
+  const rounds = (await Promise.all(ids.map((id) => loadRound(id)))).filter((round): round is PersistentRoundEntry => Boolean(round));
+  return rounds.sort((left, right) => Number(BigInt(right.resolveSlot) - BigInt(left.resolveSlot)));
+}
+
 export async function getPersistentLeaderboard(limit = 20) {
   const wallets = getRedis() ? await listPlayerWallets() : [...memoryPlayerIndex];
   const profiles = (await Promise.all(wallets.map((wallet) => loadProfile(wallet)))).filter((profile): profile is PersistentPlayerProfile => Boolean(profile));

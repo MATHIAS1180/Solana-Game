@@ -3,19 +3,18 @@
 import Link from "next/link";
 
 import { usePathname } from "next/navigation";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { AlertTriangle, Orbit, RadioTower } from "lucide-react";
 
+import { LiveDot } from "@/components/ui/live-dot";
+import { WalletButton } from "@/components/ui/wallet-button";
 import { getFaultlineProgramId, getRpcEndpoint, getSolanaNetwork } from "@/lib/solana/cluster";
 import { cn, shortKey } from "@/lib/utils";
 
 const navigationLinks = [
-  { href: "/" as const, label: "Home" },
-  { href: "/rooms" as const, label: "Arena" },
-  { href: "/watch" as const, label: "Watch" },
-  { href: "/alerts" as const, label: "Alerts" },
+  { href: "/arena" as const, label: "Arena" },
+  { href: "/how-it-works" as const, label: "How It Works" },
   { href: "/leaderboard" as const, label: "Leaderboard" },
-  { href: "/reserve" as const, label: "Reserve" }
+  { href: "/watch" as const, label: "Watch" }
 ];
 
 export function ProgramBanner() {
@@ -25,12 +24,13 @@ export function ProgramBanner() {
   const programId = getFaultlineProgramId();
 
   return (
-    <div className="fault-card arena-banner-shell rounded-[1.9rem] p-5 sm:p-6">
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+    <div className="sticky top-3 z-50">
+      <div className="fault-card arena-banner-shell rounded-[1.9rem] p-5 sm:p-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <Link href="/" className="inline-flex items-center gap-3">
-              <span className="arena-live-dot" />
+              <LiveDot />
               <span className="font-display text-xl uppercase tracking-[0.14em] text-white sm:text-2xl sm:tracking-[0.18em]">Faultline Arena</span>
             </Link>
             <span className="arena-kicker border-fault-signal/20 text-fault-signal">
@@ -45,6 +45,15 @@ export function ProgramBanner() {
           </p>
 
           <div className="arena-nav-strip fault-scrollbar text-xs uppercase tracking-[0.22em] text-white/52">
+            <Link
+              href="/"
+              className={cn(
+                "rounded-full border px-4 py-2 transition",
+                pathname === "/" ? "border-white/18 bg-white/10 text-white" : "border-white/8 bg-white/[0.03] text-white/64 hover:border-white/16 hover:text-white"
+              )}
+            >
+              Home
+            </Link>
             {navigationLinks.map(({ href, label }) => (
               <Link
                 key={href}
@@ -57,9 +66,6 @@ export function ProgramBanner() {
                 {label}
               </Link>
             ))}
-            <Link href="/#how-it-works" className="rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 text-white/64 transition hover:border-white/16 hover:text-white">
-              Mechanics
-            </Link>
           </div>
         </div>
 
@@ -88,9 +94,10 @@ export function ProgramBanner() {
               Live wallet game
             </span>
 
-            <WalletMultiButton className="!h-auto !w-full !rounded-full !bg-transparent !px-5 !py-3 !font-display !text-sm !font-semibold !uppercase !tracking-[0.2em] !text-fault-basalt sm:!w-auto" />
+            <WalletButton className="w-full sm:w-auto" />
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

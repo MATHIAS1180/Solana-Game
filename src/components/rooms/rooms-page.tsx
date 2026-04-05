@@ -4,17 +4,18 @@ import { useEffect, useRef, useState } from "react";
 
 import { useConnection } from "@solana/wallet-adapter-react";
 
-import { Activity, RefreshCw, ShieldCheck } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 import { ProgramBanner } from "@/components/game/program-banner";
 import { CreateRoomForm } from "@/components/rooms/create-room-form";
 import { RoomCard } from "@/components/rooms/room-card";
-import { RivalryBoard } from "@/components/rooms/rivalry-board";
+import { StatCard } from "@/components/ui/stat-card";
 import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, ROOM_STATE_SIZE, ROOM_STATUS } from "@/lib/faultline/constants";
 import { buildLiveRivalryBoard } from "@/lib/faultline/rivalry";
 import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
+import { formatLamports } from "@/lib/utils";
 
 type RoomsPageProps = {
   initialRooms?: SerializedFaultlineRoomAccount[];
@@ -119,88 +120,69 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
       <ProgramBanner />
 
-      <section className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-        <CreateRoomForm />
-
-        <div className="space-y-5">
-          <div className="fault-card rounded-[2rem] p-6 sm:p-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="arena-kicker">Persistent Lobbies</p>
-                <h1 className="mt-3 max-w-3xl font-display text-4xl leading-tight text-white sm:text-5xl">
-                  Eight permanent arenas. One of them is heating up right now.
-                </h1>
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
-                  Every preset stays visible, reuses the same on-chain room, and supports the single-signature path: initialize if needed, join, and commit in one wallet action.
-                  {hottestRoom ? ` Current pressure leader: ${Number(hottestRoom.stakeLamports) / 1_000_000_000} SOL with ${hottestRoom.playerCount} seated, ${lockedCommits} locked commits, and ${openedReveals} reveals already public across the board.` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void refreshRooms()}
-                className="arena-secondary inline-flex w-full items-center justify-center gap-2 self-start px-5 py-3 text-sm uppercase tracking-[0.18em] text-white/82 sm:w-auto"
-              >
-                <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
-                Refresh board
-              </button>
+      <section className="space-y-6">
+        <div className="fault-card arena-pop-in rounded-[2rem] p-6 sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="arena-kicker">Arena Board</p>
+              <h1 className="mt-3 max-w-3xl font-display text-4xl leading-tight text-white sm:text-5xl">Choose a lane. Ignore the rest.</h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
+                Persistent rooms stay visible so you can jump straight into live pressure instead of parsing a crowded dashboard.
+              </p>
             </div>
-
-            <div className="mt-8 grid gap-4 md:grid-cols-4">
-              <div className="arena-stat rounded-[1.6rem] p-5">
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live lanes</p>
-                <p className="mt-3 font-display text-3xl text-white">{liveRooms.length || DEFAULT_ROOM_PRESETS.length}</p>
-              </div>
-              <div className="arena-stat rounded-[1.6rem] p-5">
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Joinable now</p>
-                <p className="mt-3 inline-flex items-center gap-2 font-display text-3xl text-white">
-                  <Activity className="size-5 text-fault-flare" />
-                  {joinableRooms.length}
-                </p>
-              </div>
-              <div className="arena-stat rounded-[1.6rem] p-5">
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit / Reveal</p>
-                <p className="mt-3 text-base text-white">
-                  {commitLiveCount} commit live / {revealLiveCount} reveal live
-                </p>
-              </div>
-              <div className="arena-stat rounded-[1.6rem] p-5">
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Open seats</p>
-                <p className="mt-3 inline-flex items-center gap-3 text-base text-white">
-                  <span className="arena-live-dot" />
-                  {openSeats} seats still contestable
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <RivalryBoard
-                entries={rivalryEntries}
-                eyebrow="Live Leaderboard"
-                title="Regulars are already setting the pace across the visible board."
-                summary="No synthetic profile math here. The board ranks wallets from visible pressure, locked commits, revealed reads, and rewards still sitting on resolved rooms."
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => void refreshRooms()}
+              className="arena-secondary inline-flex w-full items-center justify-center gap-2 self-start px-5 py-3 text-sm uppercase tracking-[0.18em] text-white/82 sm:w-auto"
+            >
+              <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
+              Refresh
+            </button>
           </div>
 
-          {error ? <div className="fault-card rounded-3xl p-5 text-sm text-fault-flare">{error}</div> : null}
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <StatCard label="Live lanes" value={liveRooms.length || DEFAULT_ROOM_PRESETS.length} subtext="Rooms currently moving." className="arena-fade-in" />
+            <StatCard label="Open seats" value={openSeats} subtext="Seats still available before lock." className="arena-fade-in arena-delay-1" />
+            <StatCard label="Commit / Reveal" value={`${commitLiveCount} / ${revealLiveCount}`} subtext="Where the pressure sits right now." className="arena-fade-in arena-delay-2" />
+          </div>
 
-          {!error ? (
-            <div className="flex items-center gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/68">
-              <ShieldCheck className="size-4 text-fault-signal" />
-              Rooms stream from confirmed on-chain state with websocket refreshes, a polling fallback, and automation heartbeats every {Math.round(AUTOMATION_HEARTBEAT_INTERVAL_MS / 1000)}s.
+          {hottestRoom ? (
+            <div className="arena-editorial-panel arena-float-soft mt-6 rounded-[1.6rem] p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Featured lane</p>
+                  <h2 className="mt-3 font-display text-2xl text-white">The hottest room is already doing the sorting for you.</h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68">
+                    {formatLamports(hottestRoom.stakeLamports)} stake, {hottestRoom.playerCount} seated, {lockedCommits} commits locked across the board, {openedReveals} reveals already opened.
+                  </p>
+                </div>
+                <a href={`/rooms/${hottestRoom.publicKey.toBase58()}`} className="arena-primary px-5 py-3 text-xs uppercase tracking-[0.2em]">
+                  Open live lane
+                </a>
+              </div>
             </div>
           ) : null}
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {DEFAULT_ROOM_PRESETS.map((preset) => {
-              const room = rooms.find((item) => item.presetId === preset.id) ?? null;
-
-              return <RoomCard key={preset.id} preset={preset} room={room} currentSlot={currentSlot} />;
-            })}
-          </div>
-
-          {loading ? <div className="text-sm text-white/55">Loading confirmed on-chain state...</div> : null}
         </div>
+
+        {error ? <div className="fault-card rounded-3xl p-5 text-sm text-fault-flare">{error}</div> : null}
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {DEFAULT_ROOM_PRESETS.map((preset, index) => {
+            const room = rooms.find((item) => item.presetId === preset.id) ?? null;
+
+            return <RoomCard key={preset.id} preset={preset} room={room} currentSlot={currentSlot} />;
+          })}
+        </div>
+
+        <div className="fault-card rounded-[1.8rem] p-5 sm:p-6 arena-fade-in">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Optional</p>
+          <h2 className="mt-3 font-display text-2xl text-white">Need a custom room instead of a persistent lane?</h2>
+          <div className="mt-5">
+            <CreateRoomForm />
+          </div>
+        </div>
+
+        {loading ? <div className="text-sm text-white/55">Loading confirmed on-chain state...</div> : null}
       </section>
     </main>
   );

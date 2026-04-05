@@ -29,39 +29,38 @@ export const metadata: Metadata = {
   metadataBase,
   applicationName: "Faultline Arena",
   title: {
-    default: "Faultline Arena | Solana PvP Strategy Game",
-    template: "%s | Faultline Arena"
+    default: "Faultline Arena - Solana PvP Strategy Game",
+    template: "%s - Faultline Arena"
   },
-  alternates: siteUrl
-    ? {
-        canonical: "/"
-      }
-    : undefined,
+  alternates: {
+    canonical: "/"
+  },
   description:
-    "Faultline Arena is a live Solana PvP strategy game where players predict crowd movement, lock a private commit, reveal the exact read later, and compete in deterministic on-chain rankings.",
+    "Read the crowd. Lock your prediction. Win on skill. The on-chain PvP strategy game where human decisions determine every result. No RNG. No oracle.",
   keywords: [
-    "Solana strategy game",
     "Solana PvP game",
-    "commit reveal game",
     "on-chain prediction game",
     "crypto strategy game",
-    "crowd prediction game",
-    "wallet game",
+    "commit reveal game",
+    "Solana gaming",
+    "blockchain strategy game",
     "Faultline Arena"
   ],
+  authors: [{ name: "Faultline Arena" }],
+  creator: "Faultline Arena",
   openGraph: {
-    title: "Faultline Arena | Solana PvP Strategy Game",
-    description:
-      "Predict crowd movement, commit in one wallet flow, reveal your exact read later, and climb deterministic on-chain Solana rankings.",
+    title: "Faultline Arena - Solana PvP Strategy Game",
+    description: "Read the crowd. Lock your prediction. Win on skill.",
     type: "website",
     locale: "en_US",
-    siteName: "Faultline Arena"
+    siteName: "Faultline Arena",
+    url: siteUrl || "http://localhost:3000"
   },
   twitter: {
     card: "summary_large_image",
-    title: "Faultline Arena | Solana PvP Strategy Game",
-    description:
-      "A live Solana strategy game built around one-transaction entry, commit-reveal scoring, and deterministic PvP crowd forecasting."
+    title: "Faultline Arena - Solana PvP Strategy Game",
+    description: "Read the crowd. Lock your prediction. Win on skill.",
+    site: "@FaultlineArena"
   },
   robots: {
     index: true,
@@ -74,7 +73,8 @@ export const metadata: Metadata = {
       "max-video-preview": -1
     }
   },
-  category: "games"
+  category: "games",
+  manifest: "/site.webmanifest"
 };
 
 export default function RootLayout({

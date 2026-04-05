@@ -2,9 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Flame, Info, Siren, X } from "lucide-react";
 
-type ToastTone = "success" | "error" | "info";
+type ToastTone = "success" | "error" | "info" | "warning" | "game";
 
 type ToastInput = {
   title: string;
@@ -29,6 +29,14 @@ function ToastIcon({ tone }: { tone: ToastTone }) {
 
   if (tone === "error") {
     return <AlertTriangle className="size-5 text-fault-ember" />;
+  }
+
+  if (tone === "warning") {
+    return <Siren className="size-5 text-fault-flare" />;
+  }
+
+  if (tone === "game") {
+    return <Flame className="size-5 text-fault-flare" />;
   }
 
   return <Info className="size-5 text-fault-flare" />;
@@ -100,7 +108,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (input: ToastInput) => {
       counterRef.current += 1;
       const id = counterRef.current;
-      const durationMs = input.durationMs ?? (input.tone === "error" ? 6200 : input.tone === "success" ? 5200 : 4200);
+      const durationMs =
+        input.durationMs ??
+        (input.tone === "error" ? 6200 : input.tone === "warning" ? 5600 : input.tone === "success" || input.tone === "game" ? 5200 : 4200);
       const nextToast: ToastRecord = {
         id,
         tone: input.tone ?? "info",
@@ -139,6 +149,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             data-tone={toast.tone}
             data-closing={toast.closing ? "true" : "false"}
             className="arena-toast rounded-[1.4rem] p-4"
+            role={toast.tone === "error" || toast.tone === "warning" ? "alert" : "status"}
             onMouseEnter={() => pauseDismiss(toast.id)}
             onMouseLeave={() => resumeDismiss(toast.id)}
           >

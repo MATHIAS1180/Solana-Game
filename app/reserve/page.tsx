@@ -1,9 +1,27 @@
+import type { Metadata } from "next";
+
 import { ProgramBanner } from "@/components/game/program-banner";
 import { buildReserveDisciplineBoard, getReserveAvailableLamports, getReserveDistributionRate } from "@/lib/faultline/fair-access";
 import { getPersistentMetagameSnapshot, getReserveSnapshot } from "@/lib/faultline/server-data";
 import { formatLamports, shortKey } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Reserve",
+  description: "Inspect the Faultline Arena reserve, anti-grief balance, free-access posture, and reserve-facing discipline snapshot.",
+  alternates: { canonical: "/reserve" },
+  openGraph: {
+    title: "Reserve - Faultline Arena",
+    description: "Inspect the visible reserve rail, anti-grief balance, and free-access posture.",
+    url: "/reserve"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Reserve - Faultline Arena",
+    description: "Inspect the visible reserve rail, anti-grief balance, and free-access posture."
+  }
+};
 
 export default async function ReservePage() {
   const [snapshot, metagame] = await Promise.all([getReserveSnapshot(), getPersistentMetagameSnapshot(12)]);

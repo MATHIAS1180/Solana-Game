@@ -4,6 +4,98 @@
 
 :root {
   color-scheme: dark;
+  --bg-void: #0a0907;
+  --bg-depth: #0f0d0b;
+  --bg-surface: #151310;
+  --bg-raised: #1c1916;
+  --bg-hover: #232017;
+  --bg-active: #2a261e;
+  --text-primary: #f0ebe3;
+  --text-secondary: #a89e91;
+  --text-tertiary: #6b6358;
+  --text-inverse: #0a0907;
+  --ember-dim: #5c2a12;
+  --ember-base: #c4440f;
+  --ember-hot: #e85a1a;
+  --ember-bright: #f47235;
+  --ember-glow: rgba(232, 90, 26, 0.25);
+  --flare-dim: #5c3d08;
+  --flare-base: #c47f1a;
+  --flare-bright: #e8a030;
+  --flare-peak: #f5c060;
+  --flare-glow: rgba(232, 160, 48, 0.25);
+  --signal-dim: #083a42;
+  --signal-base: #1a8ea0;
+  --signal-bright: #30b8c8;
+  --signal-peak: #60d4e0;
+  --signal-glow: rgba(48, 184, 200, 0.2);
+  --color-win: #22c55e;
+  --color-win-dim: rgba(34, 197, 94, 0.15);
+  --color-win-glow: rgba(34, 197, 94, 0.25);
+  --color-loss: #ef4444;
+  --color-loss-dim: rgba(239, 68, 68, 0.15);
+  --color-neutral: #6b6358;
+  --color-warning: var(--flare-bright);
+  --color-warning-dim: var(--flare-glow);
+  --color-danger: #ff3b30;
+  --color-danger-dim: rgba(255, 59, 48, 0.15);
+  --border-subtle: rgba(240, 235, 227, 0.06);
+  --border-default: rgba(240, 235, 227, 0.1);
+  --border-strong: rgba(240, 235, 227, 0.18);
+  --border-ember: rgba(232, 90, 26, 0.35);
+  --border-flare: rgba(232, 160, 48, 0.35);
+  --border-signal: rgba(48, 184, 200, 0.3);
+  --space-px: 1px;
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
+  --radius-pill: 9999px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.7);
+  --glow-ember: 0 0 20px var(--ember-glow), 0 0 60px var(--ember-glow);
+  --glow-flare: 0 0 20px var(--flare-glow), 0 0 60px var(--flare-glow);
+  --glow-signal: 0 0 20px var(--signal-glow), 0 0 40px var(--signal-glow);
+  --glow-win: 0 0 16px var(--color-win-glow);
+  --glow-loss: 0 0 16px var(--color-loss-dim);
+  --z-below: -1;
+  --z-base: 0;
+  --z-above: 10;
+  --z-overlay: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+  --z-supreme: 9999;
+  --dur-instant: 80ms;
+  --dur-fast: 150ms;
+  --dur-normal: 250ms;
+  --dur-slow: 400ms;
+  --dur-cinematic: 700ms;
+  --dur-dramatic: 1200ms;
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-dramatic: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
   --arena-bg: #090b11;
   --arena-bg-soft: #101521;
   --arena-ink: #f7efe4;
@@ -33,11 +125,10 @@ body {
   margin: 0;
   overflow-x: hidden;
   background:
-    radial-gradient(circle at 12% 16%, rgba(var(--arena-ember), 0.28), transparent 24%),
-    radial-gradient(circle at 84% 10%, rgba(var(--arena-signal-rgb), 0.18), transparent 18%),
-    radial-gradient(circle at 76% 76%, rgba(var(--arena-flare), 0.16), transparent 24%),
-    radial-gradient(circle at 52% -10%, rgba(255, 255, 255, 0.08), transparent 28%),
-    linear-gradient(160deg, rgba(9, 11, 17, 0.96), rgba(12, 18, 27, 0.96) 46%, rgba(7, 8, 12, 0.99)),
+    radial-gradient(circle at 14% 14%, rgba(var(--arena-ember), 0.2), transparent 24%),
+    radial-gradient(circle at 86% 8%, rgba(var(--arena-signal-rgb), 0.14), transparent 18%),
+    radial-gradient(circle at 50% 100%, rgba(var(--arena-flare), 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(9, 11, 17, 0.98), rgba(10, 14, 21, 0.99)),
     var(--arena-bg);
   color: var(--arena-ink);
 }
@@ -53,17 +144,18 @@ body::after {
 
 body::before {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 42px 42px;
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 64px 64px;
   mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.7), transparent 92%);
+  opacity: 0.45;
 }
 
 body::after {
   background:
-    linear-gradient(120deg, rgba(var(--arena-ember), 0.1), transparent 26%, transparent 72%, rgba(var(--arena-signal-rgb), 0.08)),
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.04), transparent 60%);
-  opacity: 0.9;
+    linear-gradient(120deg, rgba(var(--arena-ember), 0.06), transparent 30%, transparent 72%, rgba(var(--arena-signal-rgb), 0.05)),
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.02), transparent 60%);
+  opacity: 0.72;
 }
 
 ::selection {
@@ -145,6 +237,14 @@ canvas {
     linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 44px 44px;
+}
+
+.arena-ambient {
+  background-image:
+    linear-gradient(rgba(240, 235, 227, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(240, 235, 227, 0.015) 1px, transparent 1px);
+  background-size: 48px 48px;
+  animation: arenaGridDrift 20s linear infinite;
 }
 
 .fault-ring {
@@ -423,7 +523,42 @@ a:focus-visible {
 }
 
 .arena-fade-in {
-  animation: arenaRise 520ms ease both;
+  animation: arenaReveal 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.arena-pop-in {
+  animation: arenaPopIn 860ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.arena-float-soft {
+  animation: arenaFloatSoft 7.2s ease-in-out infinite;
+}
+
+.arena-breathe {
+  animation: arenaBreathe 5.5s ease-in-out infinite;
+}
+
+.skeleton {
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.11) 50%, rgba(255, 255, 255, 0.05) 75%);
+  background-size: 200% 100%;
+  animation: arenaShimmer 1.5s linear infinite;
+}
+
+.skeleton-text {
+  height: 1rem;
+}
+
+.skeleton-title {
+  height: 1.75rem;
+}
+
+.skeleton-block {
+  height: 5rem;
+}
+
+.skeleton-card {
+  min-height: 10rem;
 }
 
 .arena-nav-strip {
@@ -634,6 +769,16 @@ a:focus-visible {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 209, 102, 0.06);
 }
 
+.arena-toast[data-tone="warning"] {
+  border-color: rgba(255, 209, 102, 0.3);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 209, 102, 0.1);
+}
+
+.arena-toast[data-tone="game"] {
+  border-color: rgba(255, 107, 53, 0.26);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 107, 53, 0.08);
+}
+
 .arena-toast[data-closing="true"] {
   animation: arenaToastOut 180ms ease forwards;
 }
@@ -668,6 +813,14 @@ a:focus-visible {
 
 .arena-toast-progress[data-tone="info"] {
   background: linear-gradient(90deg, rgba(255, 209, 102, 0.92), rgba(255, 255, 255, 0.26));
+}
+
+.arena-toast-progress[data-tone="warning"] {
+  background: linear-gradient(90deg, rgba(255, 209, 102, 0.96), rgba(255, 107, 53, 0.3));
+}
+
+.arena-toast-progress[data-tone="game"] {
+  background: linear-gradient(90deg, rgba(255, 107, 53, 0.96), rgba(255, 209, 102, 0.42));
 }
 
 .arena-phase-shell {
@@ -880,6 +1033,37 @@ a:focus-visible {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.arena-ticket-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.arena-ticket-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0, rgba(255, 255, 255, 0.025) 1px, transparent 1px, transparent 18px);
+  background-size: auto, 20px 100%;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.arena-ticket-divider {
+  position: relative;
+}
+
+.arena-ticket-divider::before {
+  content: "";
+  position: absolute;
+  left: -0.9rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+}
+
 .arena-outcome-card {
   position: relative;
   overflow: hidden;
@@ -933,6 +1117,57 @@ a:focus-visible {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes arenaReveal {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.985);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes arenaPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.96);
+    filter: blur(10px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.01);
+    filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes arenaFloatSoft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes arenaBreathe {
+  0%,
+  100% {
+    box-shadow: var(--arena-shadow);
+  }
+  50% {
+    box-shadow: 0 28px 84px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.02);
   }
 }
 
@@ -1021,6 +1256,24 @@ a:focus-visible {
   }
 }
 
+@keyframes arenaGridDrift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 40px 40px;
+  }
+}
+
+@keyframes arenaShimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
 .wallet-adapter-button {
   border: 1px solid rgba(var(--arena-flare), 0.22) !important;
   background: linear-gradient(135deg, rgba(var(--arena-flare), 1), rgba(var(--arena-ember), 0.94)) !important;
@@ -1098,6 +1351,19 @@ a:focus-visible {
 
   .fault-card {
     border-radius: 1.55rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0ms !important;
   }
 }
 
