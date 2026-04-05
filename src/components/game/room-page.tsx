@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { Clock3, Users } from "lucide-react";
 
@@ -11,12 +11,13 @@ import { PhaseBadge } from "@/components/game/phase-badge";
 import { ProgramBanner } from "@/components/game/program-banner";
 import { ResultPanel } from "@/components/game/result-panel";
 import { RoomActions } from "@/components/game/room-actions";
-import { AUTOMATION_HEARTBEAT_INTERVAL_MS } from "@/lib/faultline/constants";
-import { DEFAULT_ROOM_PRESETS, ROOM_STATUS } from "@/lib/faultline/constants";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, ROOM_STATE_SIZE, ROOM_STATUS } from "@/lib/faultline/constants";
 import { PLAYER_STATUS_LABELS, RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
+import { decodeRoomAccount } from "@/lib/faultline/layout";
 import { findPlayerIndex } from "@/lib/faultline/rooms";
 import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount, RoomPreset } from "@/lib/faultline/types";
+import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { formatLamports, shortKey } from "@/lib/utils";
 
 type RoomPageProps = {
@@ -83,14 +84,22 @@ function buildPendingRoom(roomAddress: string, preset: RoomPreset): FaultlineRoo
 }
 
 export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, initialPresetId = null, initialError = null }: RoomPageProps) {
+  const { connection } = useConnection();
   const { publicKey } = useWallet();
+  const programId = getFaultlineProgramId();
   const [room, setRoom] = useState<FaultlineRoomAccount | null>(() => (initialRoom ? deserializeRoomAccount(initialRoom) : null));
   const [currentSlot, setCurrentSlot] = useState(initialCurrentSlot);
   const [presetId, setPresetId] = useState<number | null>(initialPresetId);
   const [error, setError] = useState<string | null>(initialError);
+  const refreshInFlightRef = useRef(false);
 
   async function refreshRoom() {
+    if (refreshInFlightRef.current) {
+      return;
+    }
+
     try {
+      refreshInFlightRef.current = true;
       const response = await fetch(`/api/rooms/${roomAddress}`, { cache: "no-store" });
       const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; presetId?: number | null; room?: SerializedFaultlineRoomAccount | null };
 
@@ -104,6 +113,8 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
       setError(null);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Lecture de room impossible.");
+    } finally {
+      refreshInFlightRef.current = false;
     }
   }
 
@@ -118,6 +129,48 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
 
     return () => window.clearInterval(interval);
   }, [roomAddress]);
+
+  useEffect(() => {
+    const roomKey = new PublicKey(roomAddress);
+    const slotSubId = connection.onSlotChange((update) => {
+      setCurrentSlot(update.slot);
+    });
+
+    let accountSubId: number | null = null;
+    let programSubId: number | null = null;
+
+    if (room) {
+      accountSubId = connection.onAccountChange(
+        roomKey,
+        (accountInfo) => {
+          setRoom(decodeRoomAccount(roomKey, accountInfo.data));
+          setError(null);
+        },
+        "confirmed"
+      );
+    } else if (programId) {
+      programSubId = connection.onProgramAccountChange(
+        programId,
+        ({ accountId }) => {
+          if (accountId.toBase58() === roomAddress) {
+            void refreshRoom();
+          }
+        },
+        "confirmed",
+        [{ dataSize: ROOM_STATE_SIZE }]
+      );
+    }
+
+    return () => {
+      void connection.removeSlotChangeListener(slotSubId);
+      if (accountSubId !== null) {
+        void connection.removeAccountChangeListener(accountSubId);
+      }
+      if (programSubId !== null) {
+        void connection.removeProgramAccountChangeListener(programSubId);
+      }
+    };
+  }, [connection, programId, room, roomAddress]);
 
   if (error) {
     return (

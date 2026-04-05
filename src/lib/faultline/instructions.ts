@@ -1,13 +1,7 @@
 import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 
-import { deriveProfilePda, deriveReservePda, deriveRoomPda, deriveVaultPda } from "@/lib/faultline/pdas";
+import { deriveReservePda, deriveRoomPda, deriveVaultPda } from "@/lib/faultline/pdas";
 import type { Forecast, RiskBand, Zone } from "@/lib/faultline/types";
-
-function u64Bytes(value: bigint | number) {
-  const bytes = new Uint8Array(8);
-  new DataView(bytes.buffer).setBigUint64(0, BigInt(value), true);
-  return bytes;
-}
 
 function createInstructionData(tag: number, parts: Uint8Array[] = []) {
   const totalLength = 1 + parts.reduce((sum, item) => sum + item.length, 0);
@@ -51,7 +45,6 @@ export async function createJoinRoomIx(args: {
   room: PublicKey;
 }) {
   const [vaultPda] = await deriveVaultPda(args.programId, args.room);
-  const [profilePda] = await deriveProfilePda(args.programId, args.player);
 
   return new TransactionInstruction({
     programId: args.programId,
@@ -59,7 +52,6 @@ export async function createJoinRoomIx(args: {
       { pubkey: args.player, isSigner: true, isWritable: true },
       { pubkey: args.room, isSigner: false, isWritable: true },
       { pubkey: vaultPda, isSigner: false, isWritable: true },
-      { pubkey: profilePda, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
     ],
     data: createInstructionData(1)
@@ -70,15 +62,13 @@ export function createSubmitCommitIx(args: {
   programId: PublicKey;
   player: PublicKey;
   room: PublicKey;
-  profile: PublicKey;
   commitHash: Uint8Array;
 }) {
   return new TransactionInstruction({
     programId: args.programId,
     keys: [
       { pubkey: args.player, isSigner: true, isWritable: true },
-      { pubkey: args.room, isSigner: false, isWritable: true },
-      { pubkey: args.profile, isSigner: false, isWritable: true }
+      { pubkey: args.room, isSigner: false, isWritable: true }
     ],
     data: createInstructionData(2, [args.commitHash])
   });
@@ -91,7 +81,6 @@ export async function createJoinAndCommitIx(args: {
   commitHash: Uint8Array;
 }) {
   const [vaultPda] = await deriveVaultPda(args.programId, args.room);
-  const [profilePda] = await deriveProfilePda(args.programId, args.player);
 
   return new TransactionInstruction({
     programId: args.programId,
@@ -99,7 +88,6 @@ export async function createJoinAndCommitIx(args: {
       { pubkey: args.player, isSigner: true, isWritable: true },
       { pubkey: args.room, isSigner: false, isWritable: true },
       { pubkey: vaultPda, isSigner: false, isWritable: true },
-      { pubkey: profilePda, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
     ],
     data: createInstructionData(10, [args.commitHash])
@@ -110,7 +98,6 @@ export function createRevealDecisionIx(args: {
   programId: PublicKey;
   player: PublicKey;
   room: PublicKey;
-  profile: PublicKey;
   zone: Zone;
   riskBand: RiskBand;
   forecast: Forecast;
@@ -120,8 +107,7 @@ export function createRevealDecisionIx(args: {
     programId: args.programId,
     keys: [
       { pubkey: args.player, isSigner: false, isWritable: true },
-      { pubkey: args.room, isSigner: false, isWritable: true },
-      { pubkey: args.profile, isSigner: false, isWritable: true }
+      { pubkey: args.room, isSigner: false, isWritable: true }
     ],
     data: createInstructionData(3, [Uint8Array.from([args.zone, args.riskBand]), Uint8Array.from(args.forecast), args.nonce])
   });
@@ -172,6 +158,7 @@ export async function createForceTimeoutIx(args: {
   programId: PublicKey;
   caller: PublicKey;
   room: PublicKey;
+  refundPlayers?: PublicKey[];
 }) {
   const [vaultPda] = await deriveVaultPda(args.programId, args.room);
   const [reservePda] = await deriveReservePda(args.programId);
@@ -183,7 +170,7 @@ export async function createForceTimeoutIx(args: {
       { pubkey: args.room, isSigner: false, isWritable: true },
       { pubkey: vaultPda, isSigner: false, isWritable: true },
       { pubkey: reservePda, isSigner: false, isWritable: true }
-    ],
+    ].concat((args.refundPlayers || []).map((player) => ({ pubkey: player, isSigner: false, isWritable: true }))),
     data: createInstructionData(6)
   });
 }

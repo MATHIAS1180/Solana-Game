@@ -10,7 +10,6 @@ import {
   createResolveGameIx,
   createRevealDecisionIx
 } from "@/lib/faultline/instructions";
-import { deriveProfilePda } from "@/lib/faultline/pdas";
 import { claimAutomationHeartbeatLock, deleteAutomationCommitPayload, getAutomationCommitPayload } from "@/lib/faultline/automation-store";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
@@ -127,7 +126,14 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
     currentSlot = await connection.getSlot("confirmed");
     if (room.status === ROOM_STATUS.Commit && currentSlot > Number(room.commitDeadlineSlot)) {
       room = await execute("force-timeout-commit", room.publicKey, async () => {
-        return new Transaction().add(await createForceTimeoutIx({ programId, caller: relayer, room: room!.publicKey }));
+        return new Transaction().add(
+          await createForceTimeoutIx({
+            programId,
+            caller: relayer,
+            room: room!.publicKey,
+            refundPlayers: room!.playerKeys.slice(0, room!.playerCount)
+          })
+        );
       });
     }
 
@@ -150,14 +156,12 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
           continue;
         }
 
-        const [profile] = await deriveProfilePda(programId, player);
         room = await execute(`auto-reveal:${player.toBase58()}`, room.publicKey, async () => {
           return new Transaction().add(
             createRevealDecisionIx({
               programId,
               player,
               room: room!.publicKey,
-              profile,
               zone: storedPayload.zone,
               riskBand: storedPayload.riskBand,
               forecast: storedPayload.forecast,
@@ -178,7 +182,14 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
       currentSlot = await connection.getSlot("confirmed");
       if (room.status === ROOM_STATUS.Reveal && currentSlot > Number(room.revealDeadlineSlot) && hasCommittedPlayers(room)) {
         room = await execute("force-timeout-reveal", room.publicKey, async () => {
-          return new Transaction().add(await createForceTimeoutIx({ programId, caller: relayer, room: room!.publicKey }));
+          return new Transaction().add(
+            await createForceTimeoutIx({
+              programId,
+              caller: relayer,
+              room: room!.publicKey,
+              refundPlayers: room!.playerKeys.slice(0, room!.playerCount)
+            })
+          );
         });
       }
 

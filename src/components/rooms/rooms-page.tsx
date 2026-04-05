@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { useConnection } from "@solana/wallet-adapter-react";
 
 import { RefreshCw } from "lucide-react";
 
 import { ProgramBanner } from "@/components/game/program-banner";
 import { CreateRoomForm } from "@/components/rooms/create-room-form";
 import { RoomCard } from "@/components/rooms/room-card";
-import { DEFAULT_ROOM_PRESETS } from "@/lib/faultline/constants";
-import { AUTOMATION_HEARTBEAT_INTERVAL_MS } from "@/lib/faultline/constants";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, ROOM_STATE_SIZE } from "@/lib/faultline/constants";
 import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
+import { getFaultlineProgramId } from "@/lib/solana/cluster";
 
 type RoomsPageProps = {
   initialRooms?: SerializedFaultlineRoomAccount[];
@@ -19,14 +21,22 @@ type RoomsPageProps = {
 };
 
 export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError = null }: RoomsPageProps) {
+  const { connection } = useConnection();
+  const programId = getFaultlineProgramId();
   const [rooms, setRooms] = useState<FaultlineRoomAccount[]>(() => initialRooms?.map(deserializeRoomAccount) ?? []);
   const [currentSlot, setCurrentSlot] = useState(initialCurrentSlot);
   const [loading, setLoading] = useState(!initialRooms && !initialError);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
+  const refreshInFlightRef = useRef(false);
 
   async function refreshRooms() {
+    if (refreshInFlightRef.current) {
+      return;
+    }
+
     try {
+      refreshInFlightRef.current = true;
       if (rooms.length === 0) {
         setLoading(true);
       }
@@ -44,6 +54,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Chargement des rooms echoue.");
     } finally {
+      refreshInFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
@@ -60,6 +71,30 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
 
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!programId) {
+      return;
+    }
+
+    const programSubId = connection.onProgramAccountChange(
+      programId,
+      () => {
+        void refreshRooms();
+      },
+      "confirmed",
+      [{ dataSize: ROOM_STATE_SIZE }]
+    );
+
+    const slotSubId = connection.onSlotChange((update) => {
+      setCurrentSlot(update.slot);
+    });
+
+    return () => {
+      void connection.removeProgramAccountChangeListener(programSubId);
+      void connection.removeSlotChangeListener(slotSubId);
+    };
+  }, [connection, programId]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">

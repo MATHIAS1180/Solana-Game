@@ -9,7 +9,6 @@ import { LoaderCircle, Lock, ShieldAlert } from "lucide-react";
 import { PLAYER_STATUS, RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { buildCommitHash, generateNonce, validateForecast } from "@/lib/faultline/commit";
 import { createCancelExpiredRoomIx, createInitRoomIx, createJoinAndCommitIx, createSubmitCommitIx } from "@/lib/faultline/instructions";
-import { deriveProfilePda } from "@/lib/faultline/pdas";
 import { fetchRoom, findPlayerIndex } from "@/lib/faultline/rooms";
 import { persistCommitPayload } from "@/lib/faultline/storage";
 import type { FaultlineRoomAccount, Forecast, RiskBand, Zone } from "@/lib/faultline/types";
@@ -158,13 +157,11 @@ export function CommitComposer({
           })
         );
       } else {
-        const [profile] = await deriveProfilePda(programId, publicKey);
         transaction.add(
           createSubmitCommitIx({
             programId,
             player: publicKey,
             room: latestRoom.publicKey,
-            profile,
             commitHash
           })
         );

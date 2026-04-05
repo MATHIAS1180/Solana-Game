@@ -147,7 +147,18 @@ export function RoomActions({
               icon={Gavel}
               pending={pending === "Timeout"}
               onClick={async () => {
-                await execute("Timeout", async () => new Transaction().add(await createForceTimeoutIx({ programId: programId!, caller: publicKey!, room: room.publicKey })));
+                await execute(
+                  "Timeout",
+                  async () =>
+                    new Transaction().add(
+                      await createForceTimeoutIx({
+                        programId: programId!,
+                        caller: publicKey!,
+                        room: room.publicKey,
+                        refundPlayers: room.playerKeys.slice(0, room.playerCount)
+                      })
+                    )
+                );
               }}
             />
           ) : null}

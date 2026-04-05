@@ -17,7 +17,6 @@ use solana_program::{
 
 const ROOM_SEED_PREFIX: &[u8] = b"room";
 const VAULT_SEED_PREFIX: &[u8] = b"vault";
-const PROFILE_SEED_PREFIX: &[u8] = b"profile";
 const RESERVE_SEED_PREFIX: &[u8] = b"reserve";
 const COMMIT_DOMAIN: &[u8] = b"FAULTLINE_COMMIT_V1";
 const MAX_PLAYERS: usize = 12;
@@ -28,7 +27,6 @@ const TREASURY_PUBKEY: Pubkey = pubkey!("12dZBGCWRKtLnZVSc1Nxa2uUnvrbjCwpkkbbwHi
 const EMPTY_KEY: [u8; 32] = [0u8; 32];
 
 const ROOM_STATE_SIZE: usize = 1339;
-const PROFILE_STATE_SIZE: usize = 136;
 const RESERVE_STATE_SIZE: usize = 76;
 
 const ROOM_OPEN: u8 = 0;
@@ -756,7 +754,6 @@ fn process_join_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRe
     let player = next_account_info(&mut iter)?;
     let room_state_ai = next_account_info(&mut iter)?;
     let vault_ai = next_account_info(&mut iter)?;
-    let profile_ai = next_account_info(&mut iter)?;
     let system_program_ai = next_account_info(&mut iter)?;
 
     require_signer(player)?;
@@ -766,11 +763,9 @@ fn process_join_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRe
     verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     verify_vault(program_id, room_state_ai.key, vault_ai, room.vault_bump)?;
 
-    let mut profile = load_or_create_profile(program_id, player, profile_ai, system_program_ai)?;
-    join_player(player, vault_ai, system_program_ai, room.as_mut(), &mut profile, slot)?;
+    join_player(player, vault_ai, system_program_ai, room.as_mut(), slot)?;
     maybe_start_commit_phase(room.as_mut(), slot)?;
 
-    store_state(&profile, profile_ai)?;
     store_state(room.as_ref(), room_state_ai)?;
     msg!("PlayerJoined");
     Ok(())
@@ -782,7 +777,6 @@ fn process_join_and_commit(program_id: &Pubkey, accounts: &[AccountInfo], input:
     let player = next_account_info(&mut iter)?;
     let room_state_ai = next_account_info(&mut iter)?;
     let vault_ai = next_account_info(&mut iter)?;
-    let profile_ai = next_account_info(&mut iter)?;
     let system_program_ai = next_account_info(&mut iter)?;
 
     require_signer(player)?;
@@ -794,11 +788,9 @@ fn process_join_and_commit(program_id: &Pubkey, accounts: &[AccountInfo], input:
 
     let slot = Clock::get()?.slot;
     let commit_hash = take_32(&mut input)?;
-    let mut profile = load_or_create_profile(program_id, player, profile_ai, system_program_ai)?;
-    let index = join_player(player, vault_ai, system_program_ai, room.as_mut(), &mut profile, slot)?;
-    apply_commit(room.as_mut(), &mut profile, index, commit_hash, slot)?;
+    let index = join_player(player, vault_ai, system_program_ai, room.as_mut(), slot)?;
+    apply_commit(room.as_mut(), index, commit_hash, slot)?;
 
-    store_state(&profile, profile_ai)?;
     store_state(room.as_ref(), room_state_ai)?;
     msg!("PlayerJoinedAndCommitted");
     Ok(())
@@ -809,23 +801,16 @@ fn process_submit_commit(program_id: &Pubkey, accounts: &[AccountInfo], input: &
     let mut iter = accounts.iter();
     let player = next_account_info(&mut iter)?;
     let room_state_ai = next_account_info(&mut iter)?;
-    let profile_ai = next_account_info(&mut iter)?;
 
     require_signer(player)?;
     let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
     verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
-    let (expected_profile, _) = Pubkey::find_program_address(&[PROFILE_SEED_PREFIX, player.key.as_ref()], program_id);
-    if expected_profile != *profile_ai.key {
-        return Err(FaultlineError::InvalidPda.into());
-    }
-    let mut profile: ProfileState = load_state(profile_ai)?;
     let commit_hash = take_32(&mut input)?;
     let index = find_player_index(room.as_ref(), player.key).ok_or(FaultlineError::PlayerNotFound)?;
     let slot = Clock::get()?.slot;
 
-    apply_commit(room.as_mut(), &mut profile, index, commit_hash, slot)?;
+    apply_commit(room.as_mut(), index, commit_hash, slot)?;
 
-    store_state(&profile, profile_ai)?;
     store_state(room.as_ref(), room_state_ai)?;
     msg!("CommitSubmitted");
     Ok(())
@@ -836,15 +821,9 @@ fn process_reveal_decision(program_id: &Pubkey, accounts: &[AccountInfo], input:
     let mut iter = accounts.iter();
     let player = next_account_info(&mut iter)?;
     let room_state_ai = next_account_info(&mut iter)?;
-    let profile_ai = next_account_info(&mut iter)?;
 
     let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
     verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
-    let (expected_profile, _) = Pubkey::find_program_address(&[PROFILE_SEED_PREFIX, player.key.as_ref()], program_id);
-    if expected_profile != *profile_ai.key {
-        return Err(FaultlineError::InvalidPda.into());
-    }
-    let mut profile: ProfileState = load_state(profile_ai)?;
     let zone = take_u8(&mut input)?;
     let risk_band = take_u8(&mut input)?;
     let forecast = take_5(&mut input)?;
@@ -897,14 +876,6 @@ fn process_reveal_decision(program_id: &Pubkey, accounts: &[AccountInfo], input:
     room.revealed_count = room.revealed_count.saturating_add(1);
     room.active_count = room.revealed_count;
 
-    match risk_band {
-        RISK_CALM => profile.calm_count = profile.calm_count.saturating_add(1),
-        RISK_EDGE => profile.edge_count = profile.edge_count.saturating_add(1),
-        _ => profile.knife_count = profile.knife_count.saturating_add(1),
-    }
-    profile.games_revealed = profile.games_revealed.saturating_add(1);
-
-    store_state(&profile, profile_ai)?;
     store_state(room.as_ref(), room_state_ai)?;
     msg!("DecisionRevealed");
     Ok(())
@@ -916,6 +887,7 @@ fn process_force_timeout(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progr
     let room_state_ai = next_account_info(&mut iter)?;
     let vault_ai = next_account_info(&mut iter)?;
     let reserve_ai = next_account_info(&mut iter)?;
+    let refund_accounts = iter.as_slice();
 
     let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
     verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
@@ -998,6 +970,10 @@ fn process_force_timeout(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progr
             }
         }
         _ => return Err(FaultlineError::InvalidRoomStatus.into()),
+    }
+
+    if room.status == ROOM_CANCELLED {
+        auto_refund_cancelled_room(vault_ai, room.as_mut(), refund_accounts)?;
     }
 
     if should_reset_room(room.as_ref()) {
@@ -1153,29 +1129,15 @@ fn process_cancel_expired_room(program_id: &Pubkey, accounts: &[AccountInfo]) ->
     }
 
     room.status = ROOM_CANCELLED;
-    let refund_accounts = iter.as_slice();
-    let mut refund_account_offset = 0usize;
     for index in 0..room.player_count as usize {
         if room.player_status[index] == PLAYER_JOINED || room.player_status[index] == PLAYER_COMMITTED {
             if room.player_rewards_lamports[index] == 0 {
                 room.player_rewards_lamports[index] = room.stake_lamports;
             }
-
-            if refund_account_offset < refund_accounts.len() {
-                let refund_ai = &refund_accounts[refund_account_offset];
-                let expected_player = Pubkey::new_from_array(room.player_keys[index]);
-                if *refund_ai.key != expected_player {
-                    return Err(FaultlineError::InvalidPda.into());
-                }
-
-                let amount = room.player_rewards_lamports[index];
-                move_lamports(vault_ai, refund_ai, amount)?;
-                room.player_rewards_lamports[index] = 0;
-                room.player_claimed[index] = 1;
-                refund_account_offset += 1;
-            }
         }
     }
+
+    auto_refund_cancelled_room(vault_ai, room.as_mut(), iter.as_slice())?;
 
     if should_reset_room(room.as_ref()) {
         reset_room_to_lobby(&mut room, Clock::get()?.slot);
@@ -1409,40 +1371,11 @@ fn move_lamports(from: &AccountInfo, to: &AccountInfo, amount: u64) -> ProgramRe
     Ok(())
 }
 
-fn load_or_create_profile<'a>(
-    program_id: &Pubkey,
-    player: &AccountInfo<'a>,
-    profile_ai: &AccountInfo<'a>,
-    system_program_ai: &AccountInfo<'a>,
-) -> Result<ProfileState, ProgramError> {
-    let (expected_profile, profile_bump) = Pubkey::find_program_address(&[PROFILE_SEED_PREFIX, player.key.as_ref()], program_id);
-    if expected_profile != *profile_ai.key {
-        return Err(FaultlineError::InvalidPda.into());
-    }
-
-    if profile_ai.lamports() == 0 {
-        create_pda_account(
-            player,
-            profile_ai,
-            system_program_ai,
-            program_id,
-            PROFILE_STATE_SIZE,
-            &[PROFILE_SEED_PREFIX, player.key.as_ref(), &[profile_bump]],
-        )?;
-        let profile = ProfileState::new(player.key, profile_bump);
-        store_state(&profile, profile_ai)?;
-        return Ok(profile);
-    }
-
-    load_state(profile_ai)
-}
-
 fn join_player<'a>(
     player: &AccountInfo<'a>,
     vault_ai: &AccountInfo<'a>,
     system_program_ai: &AccountInfo<'a>,
     room: &mut RoomState,
-    profile: &mut ProfileState,
     slot: u64,
 ) -> Result<usize, ProgramError> {
     if room.status != ROOM_OPEN {
@@ -1479,15 +1412,11 @@ fn join_player<'a>(
             .checked_add(room.join_duration_slots)
             .ok_or(FaultlineError::ArithmeticOverflow)?;
     }
-
-    profile.games_joined = profile.games_joined.saturating_add(1);
-    profile.last_game_slot = slot;
     Ok(index)
 }
 
 fn apply_commit(
     room: &mut RoomState,
-    profile: &mut ProfileState,
     player_index: usize,
     commit_hash: [u8; 32],
     slot: u64,
@@ -1508,11 +1437,37 @@ fn apply_commit(
     room.player_commit_hashes[player_index] = commit_hash;
     room.player_status[player_index] = PLAYER_COMMITTED;
     room.committed_count = room.committed_count.saturating_add(1);
-    profile.games_committed = profile.games_committed.saturating_add(1);
-    profile.last_game_slot = slot;
 
     maybe_start_commit_phase(room, slot)?;
     maybe_advance_to_reveal_phase(room, slot)?;
+    Ok(())
+}
+
+fn auto_refund_cancelled_room(vault_ai: &AccountInfo, room: &mut RoomState, refund_accounts: &[AccountInfo]) -> ProgramResult {
+    let mut refund_account_offset = 0usize;
+
+    for index in 0..room.player_count as usize {
+        let amount = room.player_rewards_lamports[index];
+        if amount == 0 {
+            continue;
+        }
+
+        if refund_account_offset >= refund_accounts.len() {
+            break;
+        }
+
+        let refund_ai = &refund_accounts[refund_account_offset];
+        let expected_player = Pubkey::new_from_array(room.player_keys[index]);
+        if *refund_ai.key != expected_player {
+            return Err(FaultlineError::InvalidPda.into());
+        }
+
+        move_lamports(vault_ai, refund_ai, amount)?;
+        room.player_rewards_lamports[index] = 0;
+        room.player_claimed[index] = 1;
+        refund_account_offset += 1;
+    }
+
     Ok(())
 }
 

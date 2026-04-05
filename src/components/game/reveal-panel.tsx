@@ -8,7 +8,6 @@ import { Eye, LoaderCircle, TriangleAlert } from "lucide-react";
 
 import { RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { createRevealDecisionIx } from "@/lib/faultline/instructions";
-import { deriveProfilePda } from "@/lib/faultline/pdas";
 import { deleteStoredCommitPayload, getStoredCommitPayload } from "@/lib/faultline/storage";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
@@ -51,12 +50,10 @@ export function RevealPanel({
       setPending(true);
       setMessage(null);
 
-      const [profile] = await deriveProfilePda(programId, publicKey);
       const instruction = createRevealDecisionIx({
         programId,
         player: publicKey,
         room: room.publicKey,
-        profile,
         zone: record.zone,
         riskBand: record.riskBand,
         forecast: record.forecast,
