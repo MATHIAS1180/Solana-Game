@@ -12,6 +12,7 @@ export type Forecast = [number, number, number, number, number];
 export type CommitPayload = {
   room: PublicKey;
   player: PublicKey;
+  roundId: bigint;
   zone: Zone;
   riskBand: RiskBand;
   forecast: Forecast;
@@ -21,6 +22,8 @@ export type CommitPayload = {
 export type StoredCommitPayload = {
   room: string;
   player: string;
+  roundId: string;
+  commitVersion: number;
   zone: Zone;
   riskBand: RiskBand;
   forecast: Forecast;

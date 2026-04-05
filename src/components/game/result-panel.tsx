@@ -1,13 +1,26 @@
-import { BarChart3, Medal, Trophy } from "lucide-react";
+"use client";
 
-import { cn } from "@/lib/utils";
+import Link from "next/link";
 
+import { BarChart3, Copy, Medal, Share2, Trophy } from "lucide-react";
+
+import { useToast } from "@/components/ui/toast-provider";
 import { RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { describeNearMiss, scoreResolvedRoom } from "@/lib/faultline/logic";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
-import { formatLamports, shortKey } from "@/lib/utils";
+import { cn, formatLamports, shortKey } from "@/lib/utils";
 
-export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount; playerIndex: number }) {
+export function ResultPanel({
+  room,
+  playerIndex,
+  roomHref
+}: {
+  room: FaultlineRoomAccount;
+  playerIndex: number;
+  roomHref: string;
+}) {
+  const toast = useToast();
+
   if (room.status !== ROOM_STATUS.Resolved) {
     if (room.status !== ROOM_STATUS.Cancelled) {
       return null;
@@ -29,6 +42,48 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
   const rank = scoredPlayers.findIndex((entry) => entry.index === playerIndex);
   const player = rank >= 0 ? scoredPlayers[rank] : null;
   const winner = scoredPlayers[0];
+  const payoutCutoff = room.winnerCount > 0 ? scoredPlayers[Math.min(room.winnerCount, scoredPlayers.length) - 1] ?? null : null;
+
+  async function copyRoomLink() {
+    try {
+      const shareUrl = new URL(roomHref, window.location.origin).toString();
+      await navigator.clipboard.writeText(shareUrl);
+      toast({
+        tone: "success",
+        title: "Room link copied",
+        description: "Send the lane to someone else and let them judge the read.",
+        durationMs: 5200
+      });
+    } catch {
+      toast({
+        tone: "error",
+        title: "Copy failed",
+        description: "Your browser blocked clipboard access for this room link."
+      });
+    }
+  }
+
+  async function shareRound() {
+    const shareUrl = new URL(roomHref, window.location.origin).toString();
+    const shareText = player
+      ? `I finished #${rank + 1} in Faultline Arena on ${formatLamports(room.stakeLamports)} with ${RISK_LABELS[player.riskBand]}.`
+      : "Watch how this Faultline Arena room resolved and where the crowd actually landed.";
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Faultline Arena result",
+          text: shareText,
+          url: shareUrl
+        });
+        return;
+      } catch {
+        // Fall through to clipboard.
+      }
+    }
+
+    await copyRoomLink();
+  }
 
   return (
     <div className="fault-card rounded-[1.75rem] p-6 sm:p-8">
@@ -59,8 +114,8 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
                   </div>
                   <div className="h-2 rounded-full bg-white/10">
                     <div
-                      className="h-2 rounded-full bg-gradient-to-r from-fault-ember to-fault-flare"
-                      style={{ width: `${histogramTotal === 0 ? 0 : (value / histogramTotal) * 100}%` }}
+                      className="arena-result-bar h-2 rounded-full bg-gradient-to-r from-fault-ember to-fault-flare"
+                      style={{ ["--arena-bar-width" as string]: `${histogramTotal === 0 ? 0 : (value / histogramTotal) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -77,8 +132,33 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
               <p>Score: {player.scoreBps}</p>
               <p>Payout: {formatLamports(room.playerRewardsLamports[player.index])}</p>
               <p className="mt-3 text-fault-flare">{describeNearMiss(player.riskBand, player.zone, histogram)}</p>
+              {payoutCutoff && rank >= room.winnerCount ? (
+                <p className="mt-3 text-white/78">
+                  Cash line this round: rank #{room.winnerCount} at score {payoutCutoff.scoreBps}. You were {payoutCutoff.scoreBps - player.scoreBps} points short of the paying band.
+                </p>
+              ) : null}
             </div>
           ) : null}
+
+          <div className="arena-surface rounded-3xl p-5 text-sm leading-7 text-white/72">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Next move</p>
+            <p className="mt-3 text-white/82">
+              A resolved round should not end cold. Queue the same lane again or share the outcome while the read is still fresh.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <a href={`${roomHref}#room-actions`} className="arena-primary px-5 py-3 text-center text-xs uppercase tracking-[0.2em]">
+                Queue next read
+              </a>
+              <button type="button" onClick={() => void shareRound()} className="arena-secondary px-5 py-3 text-xs uppercase tracking-[0.2em]">
+                <Share2 className="size-4" />
+                Share result
+              </button>
+              <button type="button" onClick={() => void copyRoomLink()} className="arena-secondary px-5 py-3 text-xs uppercase tracking-[0.2em] sm:col-span-2">
+                <Copy className="size-4" />
+                Copy room link
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -95,7 +175,10 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
                 </span>
               </div>
               <p className="mt-4 text-white">
-                {shortKey(room.playerKeys[winner.index], 6)} wins with the cleanest priced read: score {winner.scoreBps}, miss {winner.error}, zone {ZONE_LABELS[winner.zone]}, risk band {RISK_LABELS[winner.riskBand]}.
+                <a href={`/players/${room.playerKeys[winner.index].toBase58()}`} className="transition hover:text-fault-flare">
+                  {shortKey(room.playerKeys[winner.index], 6)}
+                </a>{" "}
+                wins with the cleanest priced read: score {winner.scoreBps}, miss {winner.error}, zone {ZONE_LABELS[winner.zone]}, risk band {RISK_LABELS[winner.riskBand]}.
               </p>
               {player && player.index !== winner.index ? (
                 <p className="mt-3">
@@ -119,7 +202,11 @@ export function ResultPanel({ room, playerIndex }: { room: FaultlineRoomAccount;
                 >
                   <p className="font-display text-2xl text-fault-flare">#{index + 1}</p>
                   <div>
-                    <p className="text-sm text-white">{shortKey(room.playerKeys[entry.index], 6)}</p>
+                    <p className="text-sm text-white">
+                      <a href={`/players/${room.playerKeys[entry.index].toBase58()}`} className="transition hover:text-fault-flare">
+                        {shortKey(room.playerKeys[entry.index], 6)}
+                      </a>
+                    </p>
                     <p className="text-xs uppercase tracking-[0.22em] text-white/45">Zone {ZONE_LABELS[entry.zone]} / {RISK_LABELS[entry.riskBand]}</p>
                   </div>
                   <p className="text-sm text-white/72">Forecast [{entry.forecast.join(", ")}]</p>

@@ -21,10 +21,13 @@ export async function createInitRoomIx(args: {
   programId: PublicKey;
   creator: PublicKey;
   presetId: number;
+  roundId: bigint;
 }) {
   const [roomPda] = await deriveRoomPda(args.programId, args.presetId);
   const [vaultPda] = await deriveVaultPda(args.programId, roomPda);
   const [reservePda] = await deriveReservePda(args.programId);
+  const roundIdBytes = new Uint8Array(8);
+  new DataView(roundIdBytes.buffer).setBigUint64(0, args.roundId, true);
 
   return new TransactionInstruction({
     programId: args.programId,
@@ -35,7 +38,7 @@ export async function createInitRoomIx(args: {
       { pubkey: reservePda, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
     ],
-    data: createInstructionData(0, [Uint8Array.from([args.presetId])])
+    data: createInstructionData(0, [Uint8Array.from([args.presetId]), roundIdBytes])
   });
 }
 
@@ -117,7 +120,6 @@ export async function createResolveGameIx(args: {
   programId: PublicKey;
   caller: PublicKey;
   room: PublicKey;
-  treasury: PublicKey;
 }) {
   const [vaultPda] = await deriveVaultPda(args.programId, args.room);
   const [reservePda] = await deriveReservePda(args.programId);
@@ -128,8 +130,7 @@ export async function createResolveGameIx(args: {
       { pubkey: args.caller, isSigner: false, isWritable: false },
       { pubkey: args.room, isSigner: false, isWritable: true },
       { pubkey: vaultPda, isSigner: false, isWritable: true },
-      { pubkey: reservePda, isSigner: false, isWritable: true },
-      { pubkey: args.treasury, isSigner: false, isWritable: true }
+      { pubkey: reservePda, isSigner: false, isWritable: true }
     ],
     data: createInstructionData(4)
   });

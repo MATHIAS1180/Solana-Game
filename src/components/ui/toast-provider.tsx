@@ -10,11 +10,14 @@ type ToastInput = {
   title: string;
   description?: string;
   tone?: ToastTone;
+  durationMs?: number;
 };
 
 type ToastRecord = ToastInput & {
   id: number;
   tone: ToastTone;
+  durationMs: number;
+  closing: boolean;
 };
 
 const ToastContext = createContext<((input: ToastInput) => void) | null>(null);
@@ -36,24 +39,30 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
 
   const dismiss = useCallback((id: number) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id));
+    setToasts((current) => current.map((toast) => (toast.id === id ? { ...toast, closing: true } : toast)));
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 180);
   }, []);
 
   const notify = useCallback(
     (input: ToastInput) => {
       counterRef.current += 1;
       const id = counterRef.current;
+      const durationMs = input.durationMs ?? (input.tone === "error" ? 6200 : input.tone === "success" ? 5200 : 4200);
       const nextToast: ToastRecord = {
         id,
         tone: input.tone ?? "info",
         title: input.title,
-        description: input.description
+        description: input.description,
+        durationMs,
+        closing: false
       };
 
       setToasts((current) => [...current, nextToast]);
       window.setTimeout(() => {
         dismiss(id);
-      }, 4200);
+      }, durationMs);
     },
     [dismiss]
   );
@@ -65,7 +74,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <div className="arena-toast-stack" aria-live="polite" aria-atomic="true">
         {toasts.map((toast) => (
-          <div key={toast.id} data-tone={toast.tone} className="arena-toast arena-fade-in rounded-[1.4rem] p-4">
+          <div key={toast.id} data-tone={toast.tone} data-closing={toast.closing ? "true" : "false"} className="arena-toast rounded-[1.4rem] p-4">
+            <div className="arena-toast-progress" data-tone={toast.tone} style={{ animationDuration: `${toast.durationMs}ms` }} />
             <div className="flex items-start gap-3">
               <ToastIcon tone={toast.tone} />
               <div className="min-w-0 flex-1">

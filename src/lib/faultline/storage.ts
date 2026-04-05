@@ -1,5 +1,6 @@
 import { openDB } from "idb";
 
+import { parseStoredCommitPayload } from "@/lib/faultline/commit";
 import type { StoredCommitPayload } from "@/lib/faultline/types";
 
 const DB_NAME = "faultline-devnet";
@@ -31,12 +32,14 @@ export async function persistCommitPayload(record: StoredCommitPayload) {
 
 export async function getStoredCommitPayload(room: string, player: string) {
   const database = await getDb();
-  return (await database.get(STORE_NAME, getRecordId(room, player))) as (StoredCommitPayload & { id: string }) | undefined;
+  const record = (await database.get(STORE_NAME, getRecordId(room, player))) as (StoredCommitPayload & { id: string }) | undefined;
+  return record ? parseStoredCommitPayload(record) : undefined;
 }
 
 export async function listStoredPayloadsForWallet(player: string) {
   const database = await getDb();
-  return (await database.getAllFromIndex(STORE_NAME, "wallet", player)) as Array<StoredCommitPayload & { id: string }>;
+  const records = (await database.getAllFromIndex(STORE_NAME, "wallet", player)) as Array<StoredCommitPayload & { id: string }>;
+  return records.map((record) => parseStoredCommitPayload(record));
 }
 
 export async function deleteStoredCommitPayload(room: string, player: string) {

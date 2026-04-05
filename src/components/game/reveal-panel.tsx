@@ -1,18 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { Transaction } from "@solana/web3.js";
-import { Eye, LoaderCircle, TriangleAlert } from "lucide-react";
+import { PublicKey, Transaction } from "@solana/web3.js";
+import { Eye, LoaderCircle, TriangleAlert, Upload } from "lucide-react";
 
 import { useToast } from "@/components/ui/toast-provider";
+import { buildCommitHash, parseStoredCommitPayload, toHex } from "@/lib/faultline/commit";
 import { RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { createRevealDecisionIx } from "@/lib/faultline/instructions";
-import { deleteStoredCommitPayload, getStoredCommitPayload } from "@/lib/faultline/storage";
-import type { FaultlineRoomAccount } from "@/lib/faultline/types";
+import { deleteStoredCommitPayload, getStoredCommitPayload, persistCommitPayload } from "@/lib/faultline/storage";
+import type { FaultlineRoomAccount, StoredCommitPayload } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { sendAndConfirm } from "@/lib/solana/transactions";
+import { cn } from "@/lib/utils";
+
+async function clearRelayBackup(room: string, player: string) {
+  await fetch("/api/automation/commit", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ room, player })
+  });
+}
 
 export function RevealPanel({
   room,
@@ -25,8 +37,46 @@ export function RevealPanel({
   const { publicKey, sendTransaction } = useWallet();
   const programId = getFaultlineProgramId();
   const toast = useToast();
-  const [record, setRecord] = useState<Awaited<ReturnType<typeof getStoredCommitPayload>> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [record, setRecord] = useState<StoredCommitPayload | null>(null);
   const [pending, setPending] = useState(false);
+
+  const integrity = useMemo(() => {
+    if (!record) {
+      return null;
+    }
+
+    try {
+      const commitHash = buildCommitHash(
+        {
+          room: new PublicKey(record.room),
+          player: new PublicKey(record.player),
+          roundId: BigInt(record.roundId),
+          zone: record.zone,
+          riskBand: record.riskBand,
+          forecast: record.forecast,
+          nonce: Uint8Array.from(record.nonce)
+        },
+        record.commitVersion
+      );
+      const computedHex = toHex(commitHash);
+      const storedHex = toHex(Uint8Array.from(record.commitHash));
+
+      return {
+        matches: computedHex === storedHex,
+        shortHash: `${storedHex.slice(0, 10)}...${storedHex.slice(-8)}`,
+        versionLabel: record.commitVersion === 1 ? "Legacy V1 seal" : `Seal V${record.commitVersion}`,
+        createdLabel: new Date(record.createdAt).toLocaleString()
+      };
+    } catch {
+      return {
+        matches: false,
+        shortHash: "corrupted",
+        versionLabel: `Seal V${record.commitVersion}`,
+        createdLabel: new Date(record.createdAt).toLocaleString()
+      };
+    }
+  }, [record]);
 
   useEffect(() => {
     async function loadRecord() {
@@ -35,11 +85,44 @@ export function RevealPanel({
         return;
       }
       const nextRecord = await getStoredCommitPayload(room.publicKey.toBase58(), publicKey.toBase58());
-      setRecord(nextRecord || null);
+      setRecord(nextRecord ? { ...nextRecord } : null);
     }
 
     void loadRecord();
   }, [publicKey, room.publicKey]);
+
+  async function importRecoveryFile(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const raw = parseStoredCommitPayload(JSON.parse(await file.text()) as unknown, room.createdSlot);
+
+      if (raw.room !== room.publicKey.toBase58()) {
+        throw new Error("This recovery file belongs to a different room.");
+      }
+
+      if (publicKey && raw.player !== publicKey.toBase58()) {
+        throw new Error("This recovery file belongs to another wallet.");
+      }
+
+      await persistCommitPayload(raw);
+      setRecord(raw);
+      toast({
+        tone: "success",
+        title: "Recovery file loaded",
+        description: "The reveal payload is back in local storage for this room and wallet.",
+        durationMs: 6200
+      });
+    } catch (error) {
+      toast({
+        tone: "error",
+        title: "Import failed",
+        description: error instanceof Error ? error.message : "The recovery file could not be parsed."
+      });
+    }
+  }
 
   async function reveal() {
     if (!publicKey || !sendTransaction || !programId || !record) {
@@ -47,6 +130,15 @@ export function RevealPanel({
         tone: "error",
         title: "Reveal payload missing",
         description: "The saved commit payload was not found locally for this wallet and room."
+      });
+      return;
+    }
+
+    if (!integrity?.matches) {
+      toast({
+        tone: "error",
+        title: "Seal mismatch",
+        description: "The stored reveal payload no longer matches its original commit hash. Import a valid recovery file before revealing."
       });
       return;
     }
@@ -66,10 +158,12 @@ export function RevealPanel({
 
       await sendAndConfirm(connection, sendTransaction, publicKey, new Transaction().add(instruction));
       await deleteStoredCommitPayload(room.publicKey.toBase58(), publicKey.toBase58());
+      void clearRelayBackup(room.publicKey.toBase58(), publicKey.toBase58());
       toast({
         tone: "success",
         title: "Reveal confirmed",
-        description: "Your hidden read matched the stored commit and is now part of the live room outcome."
+        description: "Your hidden read matched the stored commit and is now part of the live room outcome.",
+        durationMs: 5800
       });
       await onRevealed();
     } catch (error) {
@@ -93,6 +187,25 @@ export function RevealPanel({
         <p className="mt-4 text-sm leading-7 text-white/70">
           The committed payload was not found locally for this wallet and room. Without the original nonce and forecast, this seat cannot prove what it locked earlier.
         </p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            void importRecoveryFile(file);
+            event.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="arena-secondary mt-6 inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em]"
+        >
+          <Upload className="size-4" />
+          Import recovery file
+        </button>
       </div>
     );
   }
@@ -108,6 +221,26 @@ export function RevealPanel({
           </p>
         </div>
         <Eye className="size-5 text-fault-flare" />
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-4">
+        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Seal</p>
+          <p className="mt-2 text-white">{integrity?.versionLabel}</p>
+          <p className={cn("mt-2 text-xs uppercase tracking-[0.22em]", integrity?.matches ? "text-fault-signal" : "text-fault-flare")}>{integrity?.matches ? "Integrity check passed" : "Integrity check failed"}</p>
+        </div>
+        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit hash</p>
+          <p className="mt-2 font-mono text-white">{integrity?.shortHash}</p>
+        </div>
+        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Round id</p>
+          <p className="mt-2 font-mono text-white">#{record.roundId}</p>
+        </div>
+        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Local commit time</p>
+          <p className="mt-2 text-white">{integrity?.createdLabel}</p>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -128,11 +261,11 @@ export function RevealPanel({
       <button
         type="button"
         onClick={() => void reveal()}
-        disabled={pending}
+        disabled={pending || !integrity?.matches}
         className="arena-secondary mt-6 inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
       >
         {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Eye className="size-4" />}
-        Reveal exact read
+        Break seal and reveal exact read
       </button>
     </div>
   );

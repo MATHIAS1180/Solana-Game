@@ -9,16 +9,18 @@ import { BadgeCheck, Clock3, Radar, Users, Wallet } from "lucide-react";
 import { CommitComposer } from "@/components/game/commit-composer";
 import { PhaseBadge } from "@/components/game/phase-badge";
 import { ProgramBanner } from "@/components/game/program-banner";
+import { RevealPanel } from "@/components/game/reveal-panel";
 import { ResultPanel } from "@/components/game/result-panel";
 import { RoomActions } from "@/components/game/room-actions";
-import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, ROOM_STATE_SIZE, ROOM_STATUS } from "@/lib/faultline/constants";
+import { RoomTimeline } from "@/components/game/room-timeline";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, PLAYER_STATUS, ROOM_STATE_SIZE, ROOM_STATUS } from "@/lib/faultline/constants";
 import { PLAYER_STATUS_LABELS, RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { decodeRoomAccount } from "@/lib/faultline/layout";
 import { findPlayerIndex } from "@/lib/faultline/rooms";
 import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount, RoomPreset } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
-import { cn, formatLamports, shortKey } from "@/lib/utils";
+import { cn, formatCountdown, formatLamports, shortKey } from "@/lib/utils";
 
 type RoomPageProps = {
   roomAddress: string;
@@ -81,6 +83,83 @@ function buildPendingRoom(roomAddress: string, preset: RoomPreset): FaultlineRoo
     playerScoresBps: Array.from({ length: 12 }, () => 0),
     playerRewardsLamports: Array.from({ length: 12 }, () => 0n)
   };
+}
+
+function getPhasePresentation(room: FaultlineRoomAccount, currentSlot: number) {
+  const joinRemaining = room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 ? null : Number(room.joinDeadlineSlot) - currentSlot;
+  const commitRemaining = Number(room.commitDeadlineSlot) > 0 ? Number(room.commitDeadlineSlot) - currentSlot : null;
+  const revealRemaining = Number(room.revealDeadlineSlot) > 0 ? Number(room.revealDeadlineSlot) - currentSlot : null;
+
+  switch (room.status) {
+    case ROOM_STATUS.Open:
+      if (room.playerCount === 0) {
+        return {
+          phase: "open",
+          label: "Waiting for the first seat",
+          countdown: "Standby",
+          urgent: false,
+          description: "This lane is armed but empty. The next wallet starts the public join clock and sets the pressure profile of the round."
+        };
+      }
+
+      if (joinRemaining !== null && joinRemaining <= 0 && room.playerCount < room.minPlayers) {
+        return {
+          phase: "open",
+          label: "Reset window is live",
+          countdown: "Expired",
+          urgent: true,
+          description: "The room missed minimum participation. Anyone can cancel, refund, and reopen the same lane without an operator."
+        };
+      }
+
+      return {
+        phase: "open",
+        label: room.playerCount < room.minPlayers ? "Seats still needed" : "Open pressure building",
+        countdown: joinRemaining === null ? "Standby" : formatCountdown(joinRemaining),
+        urgent: joinRemaining !== null && joinRemaining <= 30,
+        description: "The crowd is still forming. This is the last low-information moment before private reads start locking the room."
+      };
+    case ROOM_STATUS.Commit:
+      return {
+        phase: "commit",
+        label: "Private reads locking now",
+        countdown: commitRemaining === null ? "Live" : formatCountdown(commitRemaining),
+        urgent: commitRemaining !== null && commitRemaining <= 30,
+        description: "Commits are live. Players can still disagree radically, but the room is already sealed against late adaptation."
+      };
+    case ROOM_STATUS.Reveal:
+      return {
+        phase: "reveal",
+        label: room.revealedCount === room.committedCount ? "Ready to resolve" : "Final truth entering the room",
+        countdown: revealRemaining === null ? "Live" : formatCountdown(revealRemaining),
+        urgent: revealRemaining !== null && revealRemaining <= 30,
+        description: "The sealed reads are opening. Every reveal sharpens the histogram, changes band outcomes, and shifts who still owns live equity."
+      };
+    case ROOM_STATUS.Resolved:
+      return {
+        phase: "resolved",
+        label: "Outcome fixed on-chain",
+        countdown: "Resolved",
+        urgent: false,
+        description: "The room is done. What matters now is understanding the miss, claiming if you cashed, and queuing the same lane again."
+      };
+    case ROOM_STATUS.Cancelled:
+      return {
+        phase: "cancelled",
+        label: "Round voided",
+        countdown: "Cancelled",
+        urgent: false,
+        description: "This round never reached a valid scoring state. Only refunds and reset logic matter now."
+      };
+    default:
+      return {
+        phase: "emergency",
+        label: "Emergency state",
+        countdown: "Paused",
+        urgent: false,
+        description: "The normal loop is interrupted. Only trust-preserving recovery actions should remain available."
+      };
+  }
 }
 
 export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, initialPresetId = null, initialError = null }: RoomPageProps) {
@@ -235,6 +314,10 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
   }
 
   const playerIndex = publicKey ? findPlayerIndex(room, publicKey) : -1;
+  const phase = getPhasePresentation(room, currentSlot);
+  const playerStatus = playerIndex >= 0 ? room.playerStatuses[playerIndex] : null;
+  const showCommitComposer = playerStatus === PLAYER_STATUS.Joined || (playerIndex === -1 && room.status === ROOM_STATUS.Open && room.playerCount < room.maxPlayers);
+  const showRevealPanel = playerStatus === PLAYER_STATUS.Committed && room.status === ROOM_STATUS.Reveal;
   const viewerState =
     playerIndex >= 0
       ? {
@@ -248,7 +331,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
       <ProgramBanner />
 
-      <section className="fault-card rounded-[2rem] p-6 sm:p-8">
+      <section className="fault-card arena-phase-shell rounded-[2rem] p-6 sm:p-8" data-phase={phase.phase}>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="arena-kicker">Room Detail</p>
@@ -261,6 +344,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
           </div>
           <div className="flex items-center gap-3">
             <span className="arena-live-dot" />
+            <span className="arena-chip" data-tone={phase.urgent ? "ember" : "signal"}>{phase.label}</span>
             <PhaseBadge status={room.status} />
           </div>
         </div>
@@ -302,9 +386,15 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
                 Total pot {totalPot}
               </span>
             </div>
-            <p className="mt-4 text-sm leading-7 text-white/68">
-              This board stays synced from confirmed Solana state, so joins, reveals, refunds, and claims surface without manual refresh.
-            </p>
+            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Pressure window</p>
+                <p className={cn("mt-2 font-display text-3xl text-white sm:text-4xl", phase.urgent && "arena-urgent-text")}>{phase.countdown}</p>
+              </div>
+              <div className="max-w-xs text-sm leading-7 text-white/68">
+                This board stays synced from confirmed Solana state, so joins, reveals, refunds, and claims surface without manual refresh.
+              </div>
+            </div>
           </div>
 
           <div className="arena-surface rounded-[1.6rem] p-5">
@@ -326,10 +416,8 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
         </div>
 
         <div className="mt-4 rounded-[1.6rem] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/68">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Why players stay</p>
-          <p className="mt-3">
-            This room is compelling because it creates visible social tension. You commit privately, watch other seats fill, then learn exactly how close your read was once the reveal histogram lands.
-          </p>
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Current tension</p>
+          <p className="mt-3">{phase.description}</p>
         </div>
       </section>
 
@@ -337,6 +425,20 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
         <RoomActions room={room} currentSlot={currentSlot} playerIndex={playerIndex} onRefresh={refreshRoom} />
 
         <div className="space-y-6">
+          {showCommitComposer ? <CommitComposer room={room} playerIndex={playerIndex} onCommitted={refreshRoom} /> : null}
+          {showRevealPanel ? <RevealPanel room={room} onRevealed={refreshRoom} /> : null}
+          {playerStatus === PLAYER_STATUS.Committed && room.status === ROOM_STATUS.Commit ? (
+            <div className="fault-card rounded-[1.75rem] p-6 text-sm leading-7 text-white/68">
+              <p className="arena-kicker">Reveal Standby</p>
+              <h2 className="mt-3 font-display text-2xl text-white">Your read is sealed. The room still needs the reveal window to open.</h2>
+              <p className="mt-3">
+                Once every remaining seat commits or the protocol pushes the phase forward, this room will unlock reveal and your local proof payload will become actionable.
+              </p>
+            </div>
+          ) : null}
+
+          <RoomTimeline room={room} currentSlot={currentSlot} />
+
           <div className="fault-card rounded-[1.75rem] p-6">
             <p className="arena-kicker">Spectator Board</p>
             <h2 className="mt-3 font-display text-2xl text-white">Track every seat in the arena.</h2>
@@ -346,14 +448,19 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
                 <div
                   key={room.playerKeys[index].toBase58()}
                   className={cn(
-                    "grid gap-3 rounded-2xl border border-white/8 bg-black/20 p-4 md:grid-cols-[0.34fr_0.18fr_0.18fr_0.3fr] md:items-center",
+                    "arena-seat-card grid gap-3 rounded-2xl border border-white/8 bg-black/20 p-4 md:grid-cols-[0.34fr_0.18fr_0.18fr_0.3fr] md:items-center",
                     "arena-fade-in",
                     index % 3 === 1 && "arena-delay-1",
                     index % 3 === 2 && "arena-delay-2",
                     publicKey && room.playerKeys[index].equals(publicKey) && "border-fault-signal/35 bg-fault-signal/6"
                   )}
+                  data-status={PLAYER_STATUS_LABELS[room.playerStatuses[index]]}
                 >
-                  <p className="break-all text-sm text-white">{shortKey(room.playerKeys[index], 6)}</p>
+                  <p className="break-all text-sm text-white">
+                    <a href={`/players/${room.playerKeys[index].toBase58()}`} className="transition hover:text-fault-flare">
+                      {shortKey(room.playerKeys[index], 6)}
+                    </a>
+                  </p>
                   <p className="text-sm text-white/70">{PLAYER_STATUS_LABELS[room.playerStatuses[index]]}</p>
                   <p className="text-sm text-white/70">{room.playerStatuses[index] === 3 ? `Zone ${ZONE_LABELS[room.playerZones[index]]}` : "Hidden"}</p>
                   <p className="text-sm text-white/70">{room.playerStatuses[index] === 3 ? RISK_LABELS[room.playerRisks[index]] : "Waiting for reveal"}</p>
@@ -362,7 +469,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
             </div>
           </div>
 
-          <ResultPanel room={room} playerIndex={playerIndex} />
+          <ResultPanel room={room} playerIndex={playerIndex} roomHref={`/rooms/${room.publicKey.toBase58()}`} />
         </div>
       </section>
     </main>

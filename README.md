@@ -106,3 +106,4 @@ Instructions exposees:
 
 - docs/DEPLOYMENT.md pour le deploiement SolPG puis Vercel
 - docs/OPERATIONS.md pour les PDAs, seeds, flux et points d'attention
+- docs/CLAUDE_HANDOFF.md pour un resume complet produit + design du site destine a une IA ou un designer

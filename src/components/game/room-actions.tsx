@@ -6,8 +6,6 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { Ban, Coins, Gavel, LoaderCircle, LockKeyhole, Sparkle, TimerReset } from "lucide-react";
 
-import { CommitComposer } from "@/components/game/commit-composer";
-import { RevealPanel } from "@/components/game/reveal-panel";
 import { useToast } from "@/components/ui/toast-provider";
 import { PLAYER_STATUS, ROOM_STATUS } from "@/lib/faultline/constants";
 import {
@@ -20,6 +18,26 @@ import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { sendAndConfirm } from "@/lib/solana/transactions";
 import { cn, formatCountdown, formatLamports } from "@/lib/utils";
+
+function getDeadlineUrgency(remaining: number | null) {
+  if (remaining === null) {
+    return "steady";
+  }
+
+  if (remaining <= 0) {
+    return "expired";
+  }
+
+  if (remaining <= 30) {
+    return "critical";
+  }
+
+  if (remaining <= 75) {
+    return "hot";
+  }
+
+  return "steady";
+}
 
 function ActionButton({
   title,
@@ -76,10 +94,6 @@ export function RoomActions({
     room.status === ROOM_STATUS.Resolved || room.status === ROOM_STATUS.Cancelled || room.status === ROOM_STATUS.Emergency;
   const isPendingCancellation =
     room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0 && currentSlot > Number(room.joinDeadlineSlot) && room.playerCount < room.minPlayers;
-  const canComposeEntry =
-    room.status === ROOM_STATUS.Open &&
-    room.playerCount < room.maxPlayers &&
-    (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 || currentSlot <= Number(room.joinDeadlineSlot) || isPendingCancellation);
   const canCancel = isPendingCancellation;
   const canForceTimeout =
     (room.status === ROOM_STATUS.Commit && currentSlot > Number(room.commitDeadlineSlot)) ||
@@ -90,6 +104,11 @@ export function RoomActions({
     ((room.status === ROOM_STATUS.Reveal && room.revealedCount === room.committedCount) ||
       (room.status === ROOM_STATUS.Reveal && currentSlot > Number(room.revealDeadlineSlot)) ||
       (room.status === ROOM_STATUS.Commit && room.committedCount === room.playerCount));
+  const joinRemaining = room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 ? null : Number(room.joinDeadlineSlot) - currentSlot;
+  const commitRemaining = Number(room.commitDeadlineSlot) > 0 ? Number(room.commitDeadlineSlot) - currentSlot : null;
+  const revealRemaining = Number(room.revealDeadlineSlot) > 0 ? Number(room.revealDeadlineSlot) - currentSlot : null;
+  const liveWindowRemaining = room.status === ROOM_STATUS.Open ? joinRemaining : room.status === ROOM_STATUS.Commit ? commitRemaining : room.status === ROOM_STATUS.Reveal ? revealRemaining : null;
+  const liveWindowUrgency = getDeadlineUrgency(liveWindowRemaining);
   const availableActions = [canCancel, canForceTimeout, canResolve, isJoined && reward > 0n && !claimed && isSettledRoom].filter(Boolean).length;
   const nextWindowLabel = canCancel
     ? "Join window expired below the minimum threshold. Anyone can cancel now and push refunds back to players."
@@ -130,7 +149,7 @@ export function RoomActions({
   }
 
   return (
-    <div className="space-y-6">
+    <div id="room-actions" className="space-y-6">
       <div className="fault-card rounded-[1.75rem] p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -152,6 +171,9 @@ export function RoomActions({
                 <TimerReset className="size-3.5" />
                 {availableActions} live action{availableActions === 1 ? "" : "s"}
               </span>
+              <span className="arena-chip" data-tone={liveWindowUrgency === "critical" || liveWindowUrgency === "expired" ? "ember" : "flare"}>
+                {room.status === ROOM_STATUS.Open ? "Join pressure" : room.status === ROOM_STATUS.Commit ? "Commit pressure" : room.status === ROOM_STATUS.Reveal ? "Reveal pressure" : "Round settled"}
+              </span>
               {isJoined ? (
                 <span className="arena-chip" data-tone="flare">
                   <LockKeyhole className="size-3.5" />
@@ -160,6 +182,9 @@ export function RoomActions({
               ) : null}
             </div>
             <p className="mt-4 font-mono text-xs uppercase tracking-[0.22em] text-white/45">What matters now</p>
+            <p className={cn("mt-3 font-display text-3xl text-white", liveWindowUrgency === "critical" && "arena-urgent-text")}>
+              {liveWindowRemaining === null ? "No live clock" : formatCountdown(liveWindowRemaining)}
+            </p>
             <p className="mt-4 text-sm leading-7 text-white/68">{nextWindowLabel}</p>
           </div>
 
@@ -224,7 +249,7 @@ export function RoomActions({
               onClick={async () => {
                 await execute(
                   "Resolve",
-                  async () => new Transaction().add(await createResolveGameIx({ programId: programId!, caller: publicKey!, room: room.publicKey, treasury: room.treasury }))
+                  async () => new Transaction().add(await createResolveGameIx({ programId: programId!, caller: publicKey!, room: room.publicKey }))
                 );
               }}
             />
@@ -244,32 +269,26 @@ export function RoomActions({
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="arena-stat arena-fade-in rounded-2xl p-4 text-sm text-white/72">
+          <div className="arena-stat arena-deadline-card arena-fade-in rounded-2xl p-4 text-sm text-white/72" data-urgency={getDeadlineUrgency(joinRemaining)}>
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Join deadline</p>
-            <p className="mt-2 text-white">{room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 ? "opens with the next entrant" : formatCountdown(Number(room.joinDeadlineSlot) - currentSlot)}</p>
+            <p className={cn("mt-2 text-white", getDeadlineUrgency(joinRemaining) === "critical" && "arena-urgent-text")}>
+              {joinRemaining === null ? "opens with the next entrant" : formatCountdown(joinRemaining)}
+            </p>
           </div>
-          <div className="arena-stat arena-fade-in arena-delay-1 rounded-2xl p-4 text-sm text-white/72">
+          <div className="arena-stat arena-deadline-card arena-fade-in arena-delay-1 rounded-2xl p-4 text-sm text-white/72" data-urgency={getDeadlineUrgency(commitRemaining)}>
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit deadline</p>
-            <p className="mt-2 text-white">{Number(room.commitDeadlineSlot) > 0 ? formatCountdown(Number(room.commitDeadlineSlot) - currentSlot) : "not started"}</p>
+            <p className={cn("mt-2 text-white", getDeadlineUrgency(commitRemaining) === "critical" && "arena-urgent-text")}>
+              {commitRemaining === null ? "not started" : formatCountdown(commitRemaining)}
+            </p>
           </div>
-          <div className="arena-stat arena-fade-in arena-delay-2 rounded-2xl p-4 text-sm text-white/72">
+          <div className="arena-stat arena-deadline-card arena-fade-in arena-delay-2 rounded-2xl p-4 text-sm text-white/72" data-urgency={getDeadlineUrgency(revealRemaining)}>
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reveal deadline</p>
-            <p className="mt-2 text-white">{Number(room.revealDeadlineSlot) > 0 ? formatCountdown(Number(room.revealDeadlineSlot) - currentSlot) : "not started"}</p>
+            <p className={cn("mt-2 text-white", getDeadlineUrgency(revealRemaining) === "critical" && "arena-urgent-text")}>
+              {revealRemaining === null ? "not started" : formatCountdown(revealRemaining)}
+            </p>
           </div>
         </div>
       </div>
-
-      {!isJoined && canComposeEntry ? (
-        <CommitComposer room={room} playerIndex={-1} onCommitted={onRefresh} />
-      ) : null}
-
-      {isJoined && playerStatus === PLAYER_STATUS.Joined && (room.status === ROOM_STATUS.Open || room.status === ROOM_STATUS.Commit) ? (
-        <CommitComposer room={room} playerIndex={playerIndex} onCommitted={onRefresh} />
-      ) : null}
-
-      {isJoined && playerStatus === PLAYER_STATUS.Committed && (room.status === ROOM_STATUS.Commit || room.status === ROOM_STATUS.Reveal) ? (
-        <RevealPanel room={room} onRevealed={onRefresh} />
-      ) : null}
     </div>
   );
 }

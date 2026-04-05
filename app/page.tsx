@@ -4,7 +4,53 @@ import Script from "next/script";
 
 import { ArrowRight, Compass, LockKeyhole, Sparkles, Swords, Waves } from "lucide-react";
 
+import { RivalryBoard } from "@/components/rooms/rivalry-board";
+import { ROOM_STATUS, ROOM_STATUS_LABELS } from "@/lib/faultline/constants";
+import { buildLiveRivalryBoard } from "@/lib/faultline/rivalry";
+import { getVisibleRoomsSnapshot } from "@/lib/faultline/server-data";
+import { deserializeRoomAccount } from "@/lib/faultline/transport";
+import { formatCountdown, formatLamports } from "@/lib/utils";
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+export const dynamic = "force-dynamic";
+
+function scoreLiveRoom(room: {
+  status: number;
+  playerCount: number;
+  committedCount: number;
+  revealedCount: number;
+}) {
+  const phaseWeight = room.status === ROOM_STATUS.Reveal ? 300 : room.status === ROOM_STATUS.Commit ? 220 : room.status === ROOM_STATUS.Open ? 140 : 0;
+  return phaseWeight + room.playerCount * 10 + room.committedCount * 6 + room.revealedCount * 8;
+}
+
+function describeLiveWindow(room: {
+  status: number;
+  playerCount: number;
+  maxPlayers: number;
+  joinDeadlineSlot: string;
+  commitDeadlineSlot: string;
+  revealDeadlineSlot: string;
+}, currentSlot: number) {
+  if (room.status === ROOM_STATUS.Open) {
+    if (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0) {
+      return "first seat starts the clock";
+    }
+
+    return formatCountdown(Number(room.joinDeadlineSlot) - currentSlot);
+  }
+
+  if (room.status === ROOM_STATUS.Commit) {
+    return formatCountdown(Number(room.commitDeadlineSlot) - currentSlot);
+  }
+
+  if (room.status === ROOM_STATUS.Reveal) {
+    return formatCountdown(Number(room.revealDeadlineSlot) - currentSlot);
+  }
+
+  return "resolved";
+}
 
 export const metadata: Metadata = {
   title: "Faultline Arena | Solana PvP Strategy Game",
@@ -29,7 +75,27 @@ export const metadata: Metadata = {
   }
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  let liveRoom: Awaited<ReturnType<typeof getVisibleRoomsSnapshot>>["rooms"][number] | null = null;
+  let liveRoomCount = 0;
+  let activeSeats = 0;
+  let currentSlot = 0;
+  let rivalryEntries: ReturnType<typeof buildLiveRivalryBoard> = [];
+
+  try {
+    const snapshot = await getVisibleRoomsSnapshot();
+    currentSlot = snapshot.currentSlot;
+    const decodedRooms = snapshot.rooms.map(deserializeRoomAccount);
+    rivalryEntries = buildLiveRivalryBoard(decodedRooms);
+
+    const liveRooms = snapshot.rooms.filter((room) => room.playerCount > 0 && room.status !== ROOM_STATUS.Resolved && room.status !== ROOM_STATUS.Cancelled && room.status !== ROOM_STATUS.Emergency);
+    liveRoomCount = liveRooms.length;
+    activeSeats = liveRooms.reduce((sum, room) => sum + room.playerCount, 0);
+    liveRoom = [...liveRooms].sort((left, right) => scoreLiveRoom(right) - scoreLiveRoom(left))[0] ?? null;
+  } catch {
+    liveRoom = null;
+  }
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "VideoGame",
@@ -84,6 +150,57 @@ export default function HomePage() {
           <span>One-transaction entry, commit-reveal PvP, no RNG, no oracle, pure player reads.</span>
         </div>
 
+        {liveRoom ? (
+          <div className="arena-fade-in mt-4 grid gap-4 rounded-[1.9rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur lg:grid-cols-[1.15fr_0.85fr]">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="arena-chip" data-tone="signal">
+                  <span className="arena-live-dot" />
+                  Live now
+                </span>
+                <span className="arena-chip" data-tone="flare">{formatLamports(BigInt(liveRoom.stakeLamports))}</span>
+                <span className="arena-chip">{ROOM_STATUS_LABELS[liveRoom.status]}</span>
+              </div>
+              <h2 className="mt-4 max-w-3xl font-display text-2xl text-white sm:text-3xl">
+                The hottest lane right now is already moving. Enter before the room settles into a public read.
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-white/68 sm:text-base">
+                {liveRoom.playerCount} players are seated, {liveRoom.committedCount} reads are locked, and the current public window is {describeLiveWindow(liveRoom, currentSlot)}.
+              </p>
+            </div>
+            <div className="arena-surface rounded-[1.6rem] p-5">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Current pressure</p>
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div className="arena-stat rounded-2xl p-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Players</p>
+                  <p className="mt-2 text-2xl text-white">{liveRoom.playerCount}/{liveRoom.maxPlayers}</p>
+                </div>
+                <div className="arena-stat rounded-2xl p-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Window</p>
+                  <p className="mt-2 text-2xl text-white">{describeLiveWindow(liveRoom, currentSlot)}</p>
+                </div>
+              </div>
+              <Link href={`/rooms/${liveRoom.publicKey}`} className="arena-primary mt-4 w-full px-5 py-3 text-xs uppercase tracking-[0.2em]">
+                Jump into live lane
+                <ArrowRight className="size-4" />
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
+        {rivalryEntries.length > 0 ? (
+          <div className="mt-4 arena-fade-in">
+            <RivalryBoard
+              entries={rivalryEntries.slice(0, 3)}
+              eyebrow="Live Rivalry"
+              title="The same wallets are already pressuring multiple lanes."
+              summary="This ranking is built from visible on-chain room state only: live seats, locked commits, revealed reads, and payouts still sitting on the board."
+              ctaHref="/rooms"
+              ctaLabel="Open full board"
+            />
+          </div>
+        ) : null}
+
         <div className="grid gap-10 py-16 lg:grid-cols-[1.08fr_0.92fr] lg:items-end">
           <div className="arena-fade-in space-y-8">
             <div className="arena-kicker">
@@ -114,8 +231,8 @@ export default function HomePage() {
             <div className="grid gap-4 sm:grid-cols-3">
               {[
                 ["1 Tx entry", "Create if needed, join, and commit from one wallet flow."],
-                ["Deterministic scoring", "Ranks come from real reveals, forecast error, and risk-weighted outcomes."],
-                ["Live persistent lobbies", "Every stake tier stays visible so players can jump into active action faster."]
+                [liveRoomCount > 0 ? `${liveRoomCount} live lane${liveRoomCount === 1 ? "" : "s"}` : "Deterministic scoring", liveRoomCount > 0 ? "Seats are already filling across the visible board. Pressure is public before the actual reads are." : "Ranks come from real reveals, forecast error, and risk-weighted outcomes."],
+                [activeSeats > 0 ? `${activeSeats} seats filled` : "Live persistent lobbies", activeSeats > 0 ? "Players are already distributed across the board, so entry feels like jumping into pressure instead of starting from zero." : "Every stake tier stays visible so players can jump into active action faster."]
               ].map(([title, text]) => (
                 <div key={title} className="arena-stat rounded-[1.5rem] p-4">
                   <p className="font-display text-lg text-white">{title}</p>

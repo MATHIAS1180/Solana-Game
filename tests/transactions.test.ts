@@ -1,6 +1,7 @@
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { describe, expect, it, vi } from "vitest";
 
+import { createResolveGameIx } from "@/lib/faultline/instructions";
 import { pollForSignatureConfirmation, sendAndConfirm } from "@/lib/solana/transactions";
 
 describe("solana transactions", () => {
@@ -66,5 +67,16 @@ describe("solana transactions", () => {
 
     expect(result).toEqual({ err: null });
     expect(connection.getSignatureStatuses).toHaveBeenCalledTimes(3);
+  });
+
+  it("builds resolve instructions without passing a treasury account", async () => {
+    const programId = new PublicKey(new Uint8Array(32).fill(3));
+    const caller = new PublicKey(new Uint8Array(32).fill(4));
+    const room = new PublicKey(new Uint8Array(32).fill(5));
+
+    const instruction = await createResolveGameIx({ programId, caller, room });
+
+    expect(instruction.keys).toHaveLength(4);
+    expect(instruction.keys.at(-1)?.pubkey.equals(SystemProgram.programId)).toBe(false);
   });
 });

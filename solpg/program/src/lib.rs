@@ -18,7 +18,8 @@ use solana_program::{
 const ROOM_SEED_PREFIX: &[u8] = b"room";
 const VAULT_SEED_PREFIX: &[u8] = b"vault";
 const RESERVE_SEED_PREFIX: &[u8] = b"reserve";
-const COMMIT_DOMAIN: &[u8] = b"FAULTLINE_COMMIT_V1";
+const COMMIT_DOMAIN_V1: &[u8] = b"FAULTLINE_COMMIT_V1";
+const COMMIT_DOMAIN_V2: &[u8] = b"FAULTLINE_COMMIT_V2";
 const MAX_PLAYERS: usize = 12;
 const ZONE_COUNT: usize = 5;
 const MAX_WINNERS: usize = 4;
@@ -540,6 +541,7 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
     require_system_program(system_program_ai)?;
 
     let preset_id = take_u8(&mut input)?;
+    let round_id = take_u64(&mut input)?;
     let (stake_lamports, min_players, max_players, join_window_slots, commit_window_slots, reveal_window_slots) =
         get_system_preset(preset_id).ok_or(FaultlineError::InvalidRoomState)?;
     let room_seed = room_seed_from_preset(preset_id);
@@ -601,7 +603,6 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
         let _reserve: ReserveState = load_state(reserve_ai)?;
     }
 
-    let slot = Clock::get()?.slot;
     write_room_state_init(
         room_state_ai,
         room_bump,
@@ -614,7 +615,7 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
         min_players,
         max_players,
         preset_id,
-        slot,
+        round_id,
         0,
         join_window_slots,
         commit_window_slots,
@@ -739,8 +740,9 @@ fn process_reveal_decision(program_id: &Pubkey, accounts: &[AccountInfo], input:
         return Err(FaultlineError::InvalidPlayerState.into());
     }
 
-    let expected_commit = build_commit_hash(room_state_ai.key, player.key, zone, risk_band, &forecast, &nonce);
-    if room.player_commit_hashes[index] != expected_commit {
+    let expected_commit_v2 = build_commit_hash_v2(room_state_ai.key, player.key, room.created_slot, zone, risk_band, &forecast, &nonce);
+    let expected_commit_v1 = build_commit_hash_v1(room_state_ai.key, player.key, zone, risk_band, &forecast, &nonce);
+    if room.player_commit_hashes[index] != expected_commit_v2 && room.player_commit_hashes[index] != expected_commit_v1 {
         return Err(FaultlineError::CommitHashMismatch.into());
     }
 
@@ -868,13 +870,12 @@ fn process_resolve_game(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     let room_state_ai = next_account_info(&mut iter)?;
     let vault_ai = next_account_info(&mut iter)?;
     let reserve_ai = next_account_info(&mut iter)?;
-    let treasury_ai = next_account_info(&mut iter)?;
 
     let mut room = Box::new(load_state::<RoomState>(room_state_ai)?);
     verify_room_ownership(program_id, room_state_ai, room.as_ref())?;
     verify_vault(program_id, room_state_ai.key, vault_ai, room.vault_bump)?;
     verify_reserve(program_id, reserve_ai)?;
-    verify_treasury(treasury_ai, room.as_ref())?;
+    let mut reserve: ReserveState = load_state(reserve_ai)?;
 
     if room.status != ROOM_REVEAL {
         return Err(FaultlineError::ResolveNotReady.into());
@@ -907,7 +908,8 @@ fn process_resolve_game(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     if room.reserve_fee_lamports == 0 {
         let reserve_fee = (room.total_staked_lamports * RESERVE_FEE_BPS) / 10_000;
         if reserve_fee > 0 {
-            move_lamports(vault_ai, treasury_ai, reserve_fee)?;
+            move_lamports(vault_ai, reserve_ai, reserve_fee)?;
+            reserve.total_collected_lamports = reserve.total_collected_lamports.saturating_add(reserve_fee);
         }
         room.reserve_fee_lamports = reserve_fee;
     }
@@ -948,6 +950,7 @@ fn process_resolve_game(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     room.resolve_slot = Clock::get()?.slot;
     room.status = ROOM_RESOLVED;
 
+    store_state(&reserve, reserve_ai)?;
     store_state(room.as_ref(), room_state_ai)?;
     msg!("GameResolved");
     Ok(())
@@ -1104,13 +1107,6 @@ fn verify_vault(program_id: &Pubkey, room_key: &Pubkey, vault_ai: &AccountInfo, 
 fn verify_reserve(program_id: &Pubkey, reserve_ai: &AccountInfo) -> ProgramResult {
     let (expected, _) = Pubkey::find_program_address(&[RESERVE_SEED_PREFIX], program_id);
     if expected != *reserve_ai.key || reserve_ai.owner != program_id {
-        return Err(FaultlineError::InvalidPda.into());
-    }
-    Ok(())
-}
-
-fn verify_treasury(treasury_ai: &AccountInfo, room: &RoomState) -> ProgramResult {
-    if treasury_ai.key.to_bytes() != room.treasury || *treasury_ai.key != TREASURY_PUBKEY {
         return Err(FaultlineError::InvalidPda.into());
     }
     Ok(())
@@ -1278,7 +1274,9 @@ fn join_player<'a>(
         .ok_or(FaultlineError::ArithmeticOverflow)?;
 
     if room.player_count == 1 {
-        room.created_slot = slot;
+        if room.created_slot == 0 {
+            room.created_slot = slot;
+        }
         room.join_deadline_slot = slot
             .checked_add(room.join_duration_slots)
             .ok_or(FaultlineError::ArithmeticOverflow)?;
@@ -1437,7 +1435,7 @@ fn forecast_is_valid(forecast: &[u8; 5], min_players: u8, max_players: u8) -> bo
     total >= min_players as u16 && total <= max_players as u16
 }
 
-fn build_commit_hash(
+fn build_commit_hash_v1(
     room: &Pubkey,
     player: &Pubkey,
     zone: u8,
@@ -1446,9 +1444,33 @@ fn build_commit_hash(
     nonce: &[u8; 32],
 ) -> [u8; 32] {
     hashv(&[
-        COMMIT_DOMAIN,
+        COMMIT_DOMAIN_V1,
         room.as_ref(),
         player.as_ref(),
+        &[zone],
+        &[risk_band],
+        forecast,
+        nonce,
+    ])
+    .to_bytes()
+}
+
+fn build_commit_hash_v2(
+    room: &Pubkey,
+    player: &Pubkey,
+    round_id: u64,
+    zone: u8,
+    risk_band: u8,
+    forecast: &[u8; 5],
+    nonce: &[u8; 32],
+) -> [u8; 32] {
+    let round_id_bytes = round_id.to_le_bytes();
+
+    hashv(&[
+        COMMIT_DOMAIN_V2,
+        room.as_ref(),
+        player.as_ref(),
+        &round_id_bytes,
         &[zone],
         &[risk_band],
         forecast,
@@ -1557,6 +1579,11 @@ fn take_u8(input: &mut &[u8]) -> Result<u8, ProgramError> {
     let (&value, rest) = input.split_first().ok_or(FaultlineError::InvalidInstruction)?;
     *input = rest;
     Ok(value)
+}
+
+fn take_u64(input: &mut &[u8]) -> Result<u64, ProgramError> {
+    let bytes = take_n::<8>(input)?;
+    Ok(u64::from_le_bytes(bytes))
 }
 
 fn read_u8(input: &[u8], offset: &mut usize) -> Result<u8, ProgramError> {

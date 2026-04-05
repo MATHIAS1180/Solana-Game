@@ -2,6 +2,7 @@ import "server-only";
 
 import { Redis } from "@upstash/redis";
 
+import { parseStoredCommitPayload } from "@/lib/faultline/commit";
 import type { StoredCommitPayload } from "@/lib/faultline/types";
 
 let redisClient: Redis | null | undefined;
@@ -72,7 +73,8 @@ export async function getAutomationCommitPayload(room: string, player: string) {
     return null;
   }
 
-  return (await redis.get<StoredCommitPayload>(getCommitKey(room, player))) ?? null;
+  const payload = (await redis.get<StoredCommitPayload>(getCommitKey(room, player))) ?? null;
+  return payload ? parseStoredCommitPayload(payload) : null;
 }
 
 export async function deleteAutomationCommitPayload(room: string, player: string) {

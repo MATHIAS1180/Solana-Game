@@ -203,8 +203,7 @@ export async function runAutomationTick(): Promise<AutomationSummary> {
             await createResolveGameIx({
               programId,
               caller: relayer,
-              room: room!.publicKey,
-              treasury: room!.treasury
+              room: room!.publicKey
             })
           );
         });

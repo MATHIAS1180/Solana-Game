@@ -12,7 +12,7 @@ import { ROOM_STATUS } from "@/lib/faultline/constants";
 import { deriveRoomPda } from "@/lib/faultline/pdas";
 import type { FaultlineRoomAccount, RoomPreset } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
-import { formatCountdown, formatLamports, shortKey } from "@/lib/utils";
+import { cn, formatCountdown, formatLamports, shortKey } from "@/lib/utils";
 
 export function RoomCard({
   room,
@@ -59,6 +59,18 @@ export function RoomCard({
         : room.status === ROOM_STATUS.Commit
           ? "commits are live"
           : "reveal pressure building";
+  const pressureTone = !room || room.playerCount === 0 ? "signal" : canJoinRoom ? "flare" : room.status === ROOM_STATUS.Reveal ? "ember" : "signal";
+  const actionLabel = !room ? "Open room" : canJoinRoom ? "Take seat" : room.status === ROOM_STATUS.Commit ? "Watch commit" : room.status === ROOM_STATUS.Reveal ? "Watch reveal" : "View room";
+  const pressureCopy =
+    !room || room.playerCount === 0
+      ? "Fresh lane. The next wallet decides when public pressure starts."
+      : canCancelExpiredRoom
+        ? "Reset pressure is live. The next actor can clear the failed round and reopen the lane."
+        : canJoinRoom
+          ? `${seatsLeft} seat${seatsLeft === 1 ? "" : "s"} remain before this lane gets meaningfully crowded.`
+          : room.status === ROOM_STATUS.Commit
+            ? `${room.committedCount} private read${room.committedCount === 1 ? " is" : "s are"} already locked. Late entry is gone; only pressure remains.`
+            : `The room is now revealing its real shape. Spectators can still read the pressure and wait for resolution.`;
 
   async function openRoom() {
     try {
@@ -119,6 +131,12 @@ export function RoomCard({
         {room ? `Commit ${room.committedCount}/${room.playerCount} | Reveal ${room.revealedCount}/${room.committedCount}` : "The first entrant initializes the room account"}
       </div>
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="arena-chip" data-tone={pressureTone}>{momentumLabel}</span>
+        <span className="arena-chip">{room?.playerCount ?? 0}/{preset.maxPlayers} seated</span>
+        {room ? <span className="arena-chip">Window {deadlineLabel}</span> : null}
+      </div>
+
       <div className="mt-4 space-y-2">
         <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
           <span>Room momentum</span>
@@ -129,17 +147,7 @@ export function RoomCard({
         </div>
       </div>
 
-      <p className="mt-4 text-sm text-white/62">
-        {room
-          ? canCancelExpiredRoom
-            ? "The previous round failed to hit minimum participation. Opening the room lets the next game transaction refund players, reset the state, and enter the lobby in one signed flow."
-            : room.playerCount === 0
-              ? "This persistent room is armed and empty. The next player restarts the join timer and takes the first seat."
-            : canJoinRoom
-              ? "A live round is accepting entries. Open the room to choose your forecast and lock your commit in the same wallet action."
-              : "A round already exists on this preset. Open it to spectate the phase, reveal your play, or trigger permissionless actions."
-          : "No active round exists yet. Open the route and the first gameplay transaction will initialize the room if required, then join and commit in one step."}
-      </p>
+      <p className="mt-4 text-sm text-white/62">{pressureCopy}</p>
 
       <div className="mt-6 flex flex-col gap-4 text-sm text-white/70 sm:flex-row sm:items-center sm:justify-between">
         <span className="inline-flex items-center gap-2">
@@ -147,8 +155,14 @@ export function RoomCard({
           {room?.playerCount ?? 0} / {preset.maxPlayers}
         </span>
         {room ? (
-          <Link href={`/rooms/${room.publicKey.toBase58()}`} className="inline-flex items-center gap-2 text-white transition group-hover:text-fault-flare">
-            {canJoinRoom ? "Enter arena" : "View room"}
+          <Link
+            href={`/rooms/${room.publicKey.toBase58()}`}
+            className={cn(
+              "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs uppercase tracking-[0.2em] transition",
+              canJoinRoom ? "arena-primary" : "arena-secondary"
+            )}
+          >
+            {actionLabel}
             <ArrowRight className="size-4" />
           </Link>
         ) : (
@@ -159,7 +173,7 @@ export function RoomCard({
             className="arena-primary inline-flex w-full items-center gap-2 px-4 py-2 font-display text-xs uppercase tracking-[0.22em] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {pending ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
-            Open room
+            {actionLabel}
           </button>
         )}
       </div>

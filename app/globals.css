@@ -268,6 +268,7 @@ select {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(255, 209, 102, 0.92), rgba(255, 127, 80, 0.95), rgba(125, 249, 255, 0.8));
+  transition: width 460ms cubic-bezier(0.22, 1, 0.36, 1), filter 220ms ease;
 }
 
 .arena-quote {
@@ -304,10 +305,13 @@ select {
 }
 
 .arena-toast {
+  position: relative;
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(13, 15, 20, 0.92);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(18px);
+  animation: arenaToastIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .arena-toast[data-tone="success"] {
@@ -316,6 +320,142 @@ select {
 
 .arena-toast[data-tone="error"] {
   border-color: rgba(255, 107, 53, 0.34);
+}
+
+.arena-toast[data-tone="info"] {
+  border-color: rgba(255, 209, 102, 0.22);
+}
+
+.arena-toast[data-closing="true"] {
+  animation: arenaToastOut 180ms ease forwards;
+}
+
+.arena-toast-progress {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  transform-origin: left center;
+  animation: arenaToastDecay linear forwards;
+}
+
+.arena-toast-progress[data-tone="success"] {
+  background: linear-gradient(90deg, rgba(125, 249, 255, 0.92), rgba(255, 255, 255, 0.35));
+}
+
+.arena-toast-progress[data-tone="error"] {
+  background: linear-gradient(90deg, rgba(255, 107, 53, 0.96), rgba(255, 209, 102, 0.26));
+}
+
+.arena-toast-progress[data-tone="info"] {
+  background: linear-gradient(90deg, rgba(255, 209, 102, 0.92), rgba(255, 255, 255, 0.26));
+}
+
+.arena-phase-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.arena-phase-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 28%, transparent 72%, rgba(255, 255, 255, 0.03));
+  pointer-events: none;
+}
+
+.arena-phase-shell[data-phase="open"]::after,
+.arena-phase-shell[data-phase="commit"]::after,
+.arena-phase-shell[data-phase="reveal"]::after,
+.arena-phase-shell[data-phase="resolved"]::after,
+.arena-phase-shell[data-phase="cancelled"]::after,
+.arena-phase-shell[data-phase="emergency"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.arena-phase-shell[data-phase="open"]::after {
+  background: radial-gradient(circle at 14% 18%, rgba(255, 209, 102, 0.12), transparent 28%);
+}
+
+.arena-phase-shell[data-phase="commit"]::after {
+  background: radial-gradient(circle at 16% 20%, rgba(255, 107, 53, 0.16), transparent 28%);
+}
+
+.arena-phase-shell[data-phase="reveal"]::after {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 107, 53, 0.18), transparent 26%),
+    radial-gradient(circle at 82% 16%, rgba(125, 249, 255, 0.12), transparent 24%);
+}
+
+.arena-phase-shell[data-phase="resolved"]::after {
+  background: radial-gradient(circle at 22% 18%, rgba(125, 249, 255, 0.14), transparent 28%);
+}
+
+.arena-phase-shell[data-phase="cancelled"]::after,
+.arena-phase-shell[data-phase="emergency"]::after {
+  background: radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.08), transparent 24%);
+}
+
+.arena-urgent-text {
+  color: rgba(255, 226, 163, 0.96);
+  text-shadow: 0 0 24px rgba(255, 209, 102, 0.18);
+}
+
+.arena-deadline-card {
+  transition: border-color 220ms ease, background 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+}
+
+.arena-deadline-card[data-urgency="steady"] {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.arena-deadline-card[data-urgency="hot"] {
+  border-color: rgba(255, 209, 102, 0.24);
+  background: rgba(255, 209, 102, 0.06);
+}
+
+.arena-deadline-card[data-urgency="critical"] {
+  border-color: rgba(255, 107, 53, 0.3);
+  background: rgba(255, 107, 53, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(255, 107, 53, 0.08);
+  animation: arenaCriticalPulse 1.05s ease-in-out infinite;
+}
+
+.arena-deadline-card[data-urgency="expired"] {
+  border-color: rgba(255, 107, 53, 0.34);
+  background: rgba(255, 107, 53, 0.12);
+}
+
+.arena-seat-card {
+  transition: transform 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+
+.arena-seat-card[data-status="Revealed"] {
+  border-color: rgba(125, 249, 255, 0.2);
+  background: rgba(125, 249, 255, 0.06);
+}
+
+.arena-seat-card[data-status="Committed"] {
+  border-color: rgba(255, 209, 102, 0.18);
+  background: rgba(255, 209, 102, 0.06);
+}
+
+.arena-seat-card[data-status="CommitTimedOut"],
+.arena-seat-card[data-status="RevealTimedOut"] {
+  border-color: rgba(255, 107, 53, 0.24);
+  background: rgba(255, 107, 53, 0.06);
+}
+
+.arena-seat-card:hover {
+  transform: translateY(-1px);
+}
+
+.arena-result-bar {
+  width: var(--arena-bar-width, 0%);
+  animation: arenaBarRise 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes arenaPulse {
@@ -350,6 +490,58 @@ select {
   }
   100% {
     transform: translateX(140%);
+  }
+}
+
+@keyframes arenaCriticalPulse {
+  0%,
+  100% {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 0 rgba(255, 107, 53, 0.08);
+  }
+  50% {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 6px rgba(255, 107, 53, 0);
+  }
+}
+
+@keyframes arenaToastDecay {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes arenaToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes arenaToastOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+@keyframes arenaBarRise {
+  from {
+    width: 0;
+    filter: saturate(0.9) brightness(0.9);
+  }
+  to {
+    width: var(--arena-bar-width, 0%);
+    filter: saturate(1) brightness(1);
   }
 }
 

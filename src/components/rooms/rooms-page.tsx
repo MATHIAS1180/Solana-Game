@@ -9,7 +9,9 @@ import { Activity, RefreshCw, ShieldCheck } from "lucide-react";
 import { ProgramBanner } from "@/components/game/program-banner";
 import { CreateRoomForm } from "@/components/rooms/create-room-form";
 import { RoomCard } from "@/components/rooms/room-card";
-import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, ROOM_STATE_SIZE } from "@/lib/faultline/constants";
+import { RivalryBoard } from "@/components/rooms/rivalry-board";
+import { AUTOMATION_HEARTBEAT_INTERVAL_MS, DEFAULT_ROOM_PRESETS, ROOM_STATE_SIZE, ROOM_STATUS } from "@/lib/faultline/constants";
+import { buildLiveRivalryBoard } from "@/lib/faultline/rivalry";
 import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
@@ -96,6 +98,19 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
     };
   }, [connection, programId]);
 
+  const liveRooms = rooms.filter((room) => room.playerCount > 0 && room.status !== ROOM_STATUS.Resolved && room.status !== ROOM_STATUS.Cancelled && room.status !== ROOM_STATUS.Emergency);
+  const joinableRooms = rooms.filter(
+    (room) => room.status === ROOM_STATUS.Open && room.playerCount < room.maxPlayers && (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 || currentSlot <= Number(room.joinDeadlineSlot))
+  );
+  const openSeats = joinableRooms.reduce((sum, room) => sum + Math.max(room.maxPlayers - room.playerCount, 0), 0);
+  const rivalryEntries = buildLiveRivalryBoard(rooms).slice(0, 5);
+  const hottestRoom =
+    [...liveRooms].sort((left, right) => {
+      const leftScore = left.playerCount * 10 + left.committedCount * 8 + left.revealedCount * 12 + (left.status === ROOM_STATUS.Reveal ? 120 : left.status === ROOM_STATUS.Commit ? 80 : 40);
+      const rightScore = right.playerCount * 10 + right.committedCount * 8 + right.revealedCount * 12 + (right.status === ROOM_STATUS.Reveal ? 120 : right.status === ROOM_STATUS.Commit ? 80 : 40);
+      return rightScore - leftScore;
+    })[0] ?? null;
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
       <ProgramBanner />
@@ -109,10 +124,11 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
               <div>
                 <p className="arena-kicker">Persistent Lobbies</p>
                 <h1 className="mt-3 max-w-3xl font-display text-4xl leading-tight text-white sm:text-5xl">
-                  Enter any stake bracket from 0.01 to 1 SOL without waiting for a relayer.
+                  Eight permanent arenas. One of them is heating up right now.
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
                   Every preset stays visible, reuses the same on-chain room, and supports the single-signature path: initialize if needed, join, and commit in one wallet action.
+                  {hottestRoom ? ` Current pressure leader: ${Number(hottestRoom.stakeLamports) / 1_000_000_000} SOL with ${hottestRoom.playerCount} seated.` : ""}
                 </p>
               </div>
               <button
@@ -127,23 +143,32 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               <div className="arena-stat rounded-[1.6rem] p-5">
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Visible presets</p>
-                <p className="mt-3 font-display text-3xl text-white">{DEFAULT_ROOM_PRESETS.length}</p>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live lanes</p>
+                <p className="mt-3 font-display text-3xl text-white">{liveRooms.length || DEFAULT_ROOM_PRESETS.length}</p>
               </div>
               <div className="arena-stat rounded-[1.6rem] p-5">
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Network slot</p>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Joinable now</p>
                 <p className="mt-3 inline-flex items-center gap-2 font-display text-3xl text-white">
                   <Activity className="size-5 text-fault-flare" />
-                  {currentSlot}
+                  {joinableRooms.length}
                 </p>
               </div>
               <div className="arena-stat rounded-[1.6rem] p-5">
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live automation</p>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Open seats</p>
                 <p className="mt-3 inline-flex items-center gap-3 text-base text-white">
                   <span className="arena-live-dot" />
-                  Refund and timeout heartbeat every {Math.round(AUTOMATION_HEARTBEAT_INTERVAL_MS / 1000)}s
+                  {openSeats} seats are still contestable across the visible board
                 </p>
               </div>
+            </div>
+
+            <div className="mt-6">
+              <RivalryBoard
+                entries={rivalryEntries}
+                eyebrow="Live Leaderboard"
+                title="Regulars are already setting the pace across the visible board."
+                summary="No synthetic profile math here. The board ranks wallets from visible pressure, locked commits, revealed reads, and rewards still sitting on resolved rooms."
+              />
             </div>
           </div>
 
@@ -152,7 +177,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
           {!error ? (
             <div className="flex items-center gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/68">
               <ShieldCheck className="size-4 text-fault-signal" />
-              Rooms stream from confirmed on-chain state with websocket refreshes and a polling fallback.
+              Rooms stream from confirmed on-chain state with websocket refreshes, a polling fallback, and automation heartbeats every {Math.round(AUTOMATION_HEARTBEAT_INTERVAL_MS / 1000)}s.
             </div>
           ) : null}
 

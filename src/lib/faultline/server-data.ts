@@ -3,6 +3,7 @@ import "server-only";
 import { PublicKey } from "@solana/web3.js";
 
 import { DEFAULT_ROOM_PRESETS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
+import { buildPlayerBoardSnapshot } from "@/lib/faultline/player-profile";
 import { deriveRoomPda } from "@/lib/faultline/pdas";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import { selectVisibleSystemRooms } from "@/lib/faultline/system-rooms";
@@ -12,6 +13,7 @@ import { getServerConnection, getServerProgramId } from "@/lib/solana/server";
 let lastVisibleRoomsSnapshot: Awaited<ReturnType<typeof buildVisibleRoomsSnapshot>> | null = null;
 
 const lastRoomSnapshots = new Map<string, Awaited<ReturnType<typeof buildRoomSnapshot>> | null>();
+const lastPlayerSnapshots = new Map<string, Awaited<ReturnType<typeof buildPlayerSnapshot>>>();
 
 async function buildVisibleRoomsSnapshot() {
   const connection = getServerConnection();
@@ -66,6 +68,18 @@ async function buildRoomSnapshot(roomAddress: string) {
   };
 }
 
+async function buildPlayerSnapshot(wallet: string) {
+  const connection = getServerConnection();
+  const programId = getServerProgramId();
+  const [rooms, currentSlot] = await Promise.all([fetchRooms(connection, programId), connection.getSlot("confirmed")]);
+
+  return buildPlayerBoardSnapshot(
+    rooms.filter((room) => matchesDefaultRoomPreset(room)),
+    wallet,
+    currentSlot
+  );
+}
+
 export async function getVisibleRoomsSnapshot() {
   try {
     const snapshot = await buildVisibleRoomsSnapshot();
@@ -88,6 +102,20 @@ export async function getRoomSnapshot(roomAddress: string) {
   } catch (error) {
     if (lastRoomSnapshots.has(roomAddress)) {
       return lastRoomSnapshots.get(roomAddress) ?? null;
+    }
+
+    throw error;
+  }
+}
+
+export async function getPlayerSnapshot(wallet: string) {
+  try {
+    const snapshot = await buildPlayerSnapshot(wallet);
+    lastPlayerSnapshots.set(wallet, snapshot);
+    return snapshot;
+  } catch (error) {
+    if (lastPlayerSnapshots.has(wallet)) {
+      return lastPlayerSnapshots.get(wallet)!;
     }
 
     throw error;

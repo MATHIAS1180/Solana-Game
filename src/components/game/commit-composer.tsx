@@ -7,12 +7,12 @@ import { Transaction } from "@solana/web3.js";
 import { LoaderCircle, Lock, ShieldAlert } from "lucide-react";
 
 import { useToast } from "@/components/ui/toast-provider";
-import { PLAYER_STATUS, RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
+import { FAULTLINE_COMMIT_VERSION, PLAYER_STATUS, RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { buildCommitHash, generateNonce, validateForecast } from "@/lib/faultline/commit";
 import { createCancelExpiredRoomIx, createInitRoomIx, createJoinAndCommitIx, createSubmitCommitIx } from "@/lib/faultline/instructions";
 import { fetchRoom, findPlayerIndex } from "@/lib/faultline/rooms";
 import { persistCommitPayload } from "@/lib/faultline/storage";
-import type { FaultlineRoomAccount, Forecast, RiskBand, Zone } from "@/lib/faultline/types";
+import type { FaultlineRoomAccount, Forecast, RiskBand, StoredCommitPayload, Zone } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { sendAndConfirm } from "@/lib/solana/transactions";
 import { shortKey } from "@/lib/utils";
@@ -24,6 +24,33 @@ function getDefaultForecast(room: FaultlineRoomAccount): Forecast {
     histogram[index] += 1;
   }
   return histogram;
+}
+
+function downloadCommitBackup(record: StoredCommitPayload) {
+  const blob = new Blob([JSON.stringify(record, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `faultline-reveal-backup-${record.room.slice(0, 8)}-${record.createdAt}.json`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function storeRelayBackup(record: StoredCommitPayload) {
+  const response = await fetch("/api/automation/commit", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(record)
+  });
+
+  const payload = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || "The relay backup could not be stored.");
+  }
 }
 
 export function CommitComposer({
@@ -45,6 +72,8 @@ export function CommitComposer({
   const [riskBand, setRiskBand] = useState<RiskBand>(0);
   const [forecast, setForecast] = useState<Forecast>(() => getDefaultForecast(room));
   const [pending, setPending] = useState(false);
+  const [downloadBackup, setDownloadBackup] = useState(true);
+  const [storeRelayRecovery, setStoreRelayRecovery] = useState(false);
   const isJoined = playerIndex >= 0;
 
   const validation = useMemo(() => validateForecast(forecast, room.minPlayers, room.maxPlayers), [forecast, room.maxPlayers, room.minPlayers]);
@@ -103,9 +132,11 @@ export function CommitComposer({
 
       const nonce = generateNonce();
       const targetRoomKey = latestRoom?.publicKey ?? room.publicKey;
+      const roundId = latestRoom?.createdSlot ?? BigInt(currentSlot);
       const payload = {
         room: targetRoomKey,
         player: publicKey,
+        roundId,
         zone,
         riskBand,
         forecast,
@@ -116,6 +147,8 @@ export function CommitComposer({
       const storedPayload = {
         room: targetRoomKey.toBase58(),
         player: publicKey.toBase58(),
+        roundId: roundId.toString(),
+        commitVersion: FAULTLINE_COMMIT_VERSION,
         zone,
         riskBand,
         forecast,
@@ -133,7 +166,8 @@ export function CommitComposer({
           await createInitRoomIx({
             programId,
             creator: publicKey,
-            presetId: targetPresetId!
+            presetId: targetPresetId!,
+            roundId
           })
         );
         transaction.add(
@@ -176,10 +210,37 @@ export function CommitComposer({
       }
 
       await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
+
+      let relayBackupStored = false;
+      if (storeRelayRecovery) {
+        try {
+          await storeRelayBackup(storedPayload);
+          relayBackupStored = true;
+        } catch (backupError) {
+          toast({
+            tone: "info",
+            title: "Commit confirmed, relay backup skipped",
+            description:
+              backupError instanceof Error
+                ? `${backupError.message} Your local reveal payload is still safe in this browser.`
+                : "The relay backup could not be stored, but your local reveal payload is still safe in this browser.",
+            durationMs: 7600
+          });
+        }
+      }
+
+      if (downloadBackup) {
+        downloadCommitBackup(storedPayload);
+      }
       toast({
         tone: "success",
         title: !latestRoom ? "Room opened and read locked" : latestPlayerIndex === -1 ? "Seat claimed and read locked" : "Read locked",
-        description: `Your reveal key was saved locally for ${shortKey(room.publicKey)}. You will need this browser state during reveal.`
+        description: relayBackupStored
+          ? `Your reveal key was saved locally for ${shortKey(room.publicKey)}, mirrored to the relay for 7-day recovery, and ready for cross-device reveal.`
+          : downloadBackup
+            ? `Your reveal key was saved locally for ${shortKey(room.publicKey)} and a recovery file was downloaded for cross-device reveal.`
+            : `Your reveal key was saved locally for ${shortKey(room.publicKey)}. Keep this browser state for reveal, or export a backup before switching device.`,
+        durationMs: 7600
       });
       await onCommitted();
     } catch (error) {
@@ -191,7 +252,8 @@ export function CommitComposer({
             ? "IndexedDB is unavailable, so the reveal payload cannot be preserved for the reveal phase. Enable browser storage before entering the room."
             : error instanceof Error
               ? error.message
-              : "The commit transaction could not be completed."
+              : "The commit transaction could not be completed.",
+        durationMs: 7600
       });
     } finally {
       setPending(false);
@@ -281,6 +343,27 @@ export function CommitComposer({
             <ShieldAlert className="size-4" />
             The nonce and clear payload are stored locally before send. Lose this browser state and your manual reveal path is gone.
           </p>
+          <label className="mt-4 flex items-center gap-3 text-sm text-white/78">
+            <input
+              type="checkbox"
+              checked={downloadBackup}
+              onChange={(event) => setDownloadBackup(event.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-transparent accent-[#ffd166]"
+            />
+            Download a recovery file after the commit confirms.
+          </label>
+          <label className="mt-3 flex items-start gap-3 text-sm text-white/78">
+            <input
+              type="checkbox"
+              checked={storeRelayRecovery}
+              onChange={(event) => setStoreRelayRecovery(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-white/20 bg-transparent accent-[#7df9ff]"
+            />
+            <span>
+              Mirror this reveal payload to the automation relay for 7-day cross-device recovery.
+              <span className="mt-1 block text-white/52">Opt-in only: this stores the clear reveal payload server-side so the relay can auto-reveal or help you recover on another device.</span>
+            </span>
+          </label>
         </div>
 
         <button
