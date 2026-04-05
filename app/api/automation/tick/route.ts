@@ -22,7 +22,7 @@ async function handle(request: Request) {
     const summary = await runAutomationTick();
     return NextResponse.json({ ok: true, ...summary });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Erreur inconnue" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
   }
 }
 

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useConnection } from "@solana/wallet-adapter-react";
 
-import { RefreshCw } from "lucide-react";
+import { Activity, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { ProgramBanner } from "@/components/game/program-banner";
 import { CreateRoomForm } from "@/components/rooms/create-room-form";
@@ -46,13 +46,13 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
       const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; rooms?: SerializedFaultlineRoomAccount[] };
 
       if (!response.ok || !payload.ok || !payload.rooms || payload.currentSlot === undefined) {
-        throw new Error(payload.error || "Chargement des rooms echoue.");
+        throw new Error(payload.error || "Unable to load arena lobbies.");
       }
 
       setCurrentSlot(payload.currentSlot);
       setRooms(payload.rooms.map(deserializeRoomAccount));
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Chargement des rooms echoue.");
+      setError(nextError instanceof Error ? nextError.message : "Unable to load arena lobbies.");
     } finally {
       refreshInFlightRef.current = false;
       setLoading(false);
@@ -104,22 +104,57 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
         <CreateRoomForm />
 
         <div className="space-y-5">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Permanent Presets</p>
-              <h1 className="mt-3 font-display text-4xl text-white">Les rooms 0.01 a 1 SOL restent toujours visibles</h1>
+          <div className="fault-card rounded-[2rem] p-6 sm:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="arena-kicker">Persistent Lobbies</p>
+                <h1 className="mt-3 max-w-3xl font-display text-4xl leading-tight text-white sm:text-5xl">
+                  Enter any stake bracket from 0.01 to 1 SOL without waiting for a relayer.
+                </h1>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
+                  Every preset stays visible, reuses the same on-chain room, and supports the single-signature path: initialize if needed, join, and commit in one wallet action.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void refreshRooms()}
+                className="arena-secondary inline-flex items-center justify-center gap-2 self-start px-5 py-3 text-sm uppercase tracking-[0.18em] text-white/82"
+              >
+                <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
+                Refresh board
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => void refreshRooms()}
-              className="inline-flex items-center gap-2 rounded-full border border-white/12 px-4 py-2 text-sm text-white/72 transition hover:border-white/30 hover:bg-white/5"
-            >
-              <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
-              Rafraichir
-            </button>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              <div className="arena-stat rounded-[1.6rem] p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Visible presets</p>
+                <p className="mt-3 font-display text-3xl text-white">{DEFAULT_ROOM_PRESETS.length}</p>
+              </div>
+              <div className="arena-stat rounded-[1.6rem] p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Network slot</p>
+                <p className="mt-3 inline-flex items-center gap-2 font-display text-3xl text-white">
+                  <Activity className="size-5 text-fault-flare" />
+                  {currentSlot}
+                </p>
+              </div>
+              <div className="arena-stat rounded-[1.6rem] p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live automation</p>
+                <p className="mt-3 inline-flex items-center gap-3 text-base text-white">
+                  <span className="arena-live-dot" />
+                  Refund and timeout heartbeat every {Math.round(AUTOMATION_HEARTBEAT_INTERVAL_MS / 1000)}s
+                </p>
+              </div>
+            </div>
           </div>
 
           {error ? <div className="fault-card rounded-3xl p-5 text-sm text-fault-flare">{error}</div> : null}
+
+          {!error ? (
+            <div className="flex items-center gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/68">
+              <ShieldCheck className="size-4 text-fault-signal" />
+              Rooms stream from confirmed on-chain state with websocket refreshes and a polling fallback.
+            </div>
+          ) : null}
 
           <div className="grid gap-4 md:grid-cols-2">
             {DEFAULT_ROOM_PRESETS.map((preset) => {
@@ -129,7 +164,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
             })}
           </div>
 
-          {loading ? <div className="text-sm text-white/55">Chargement des etats on-chain...</div> : null}
+          {loading ? <div className="text-sm text-white/55">Loading confirmed on-chain state...</div> : null}
         </div>
       </section>
     </main>

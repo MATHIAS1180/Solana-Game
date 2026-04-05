@@ -44,7 +44,7 @@ export const DEFAULT_ROOM_PRESETS = [
   {
     id: 0,
     name: "0.01 SOL",
-    description: "Room systeme d'entree.",
+    description: "Entry-stake arena with instant replayability.",
     minPlayers: 2,
     maxPlayers: 12,
     stakeLamports: 10_000_000,
@@ -55,7 +55,7 @@ export const DEFAULT_ROOM_PRESETS = [
   {
     id: 1,
     name: "0.02 SOL",
-    description: "Room systeme basse friction.",
+    description: "Low-friction lobby for repeat reads.",
     minPlayers: 2,
     maxPlayers: 12,
     stakeLamports: 20_000_000,
@@ -66,7 +66,7 @@ export const DEFAULT_ROOM_PRESETS = [
   {
     id: 2,
     name: "0.04 SOL",
-    description: "Room systeme intermediaire.",
+    description: "Mid-tier arena for sharper crowd prediction.",
     minPlayers: 2,
     maxPlayers: 12,
     stakeLamports: 40_000_000,
@@ -77,7 +77,7 @@ export const DEFAULT_ROOM_PRESETS = [
   {
     id: 3,
     name: "0.08 SOL",
-    description: "Room systeme medium.",
+    description: "Balanced stake room for disciplined players.",
     minPlayers: 2,
     maxPlayers: 12,
     stakeLamports: 80_000_000,
@@ -88,7 +88,7 @@ export const DEFAULT_ROOM_PRESETS = [
   {
     id: 4,
     name: "0.16 SOL",
-    description: "Room systeme a enjeu releve.",
+    description: "Higher-stakes lobby with tighter reads.",
     minPlayers: 2,
     maxPlayers: 12,
     stakeLamports: 160_000_000,
@@ -99,7 +99,7 @@ export const DEFAULT_ROOM_PRESETS = [
   {
     id: 5,
     name: "0.32 SOL",
-    description: "Room systeme haute mise.",
+    description: "High-stake arena built for confident commits.",
     minPlayers: 2,
     maxPlayers: 12,
     stakeLamports: 320_000_000,
@@ -110,7 +110,7 @@ export const DEFAULT_ROOM_PRESETS = [
   {
     id: 6,
     name: "0.64 SOL",
-    description: "Room systeme premium.",
+    description: "Premium bracket for aggressive signal hunters.",
     minPlayers: 2,
     maxPlayers: 12,
     stakeLamports: 640_000_000,
@@ -121,7 +121,7 @@ export const DEFAULT_ROOM_PRESETS = [
   {
     id: 7,
     name: "1 SOL",
-    description: "Room systeme plafond actuel.",
+    description: "Current cap table for the strongest conviction.",
     minPlayers: 2,
     maxPlayers: 12,
     stakeLamports: 1_000_000_000,

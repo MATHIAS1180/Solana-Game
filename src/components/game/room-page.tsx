@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
-import { Clock3, Users } from "lucide-react";
+import { BadgeCheck, Clock3, Radar, Users, Wallet } from "lucide-react";
 
 import { CommitComposer } from "@/components/game/commit-composer";
 import { PhaseBadge } from "@/components/game/phase-badge";
@@ -18,7 +18,7 @@ import { findPlayerIndex } from "@/lib/faultline/rooms";
 import { deserializeRoomAccount, type SerializedFaultlineRoomAccount } from "@/lib/faultline/transport";
 import type { FaultlineRoomAccount, RoomPreset } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
-import { formatLamports, shortKey } from "@/lib/utils";
+import { cn, formatLamports, shortKey } from "@/lib/utils";
 
 type RoomPageProps = {
   roomAddress: string;
@@ -104,7 +104,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
       const payload = (await response.json()) as { ok: boolean; error?: string; currentSlot?: number; presetId?: number | null; room?: SerializedFaultlineRoomAccount | null };
 
       if (!response.ok || !payload.ok || payload.currentSlot === undefined) {
-        throw new Error(payload.error || "Lecture de room impossible.");
+        throw new Error(payload.error || "Unable to load room state.");
       }
 
       setCurrentSlot(payload.currentSlot);
@@ -112,7 +112,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
       setRoom(payload.room ? deserializeRoomAccount(payload.room) : null);
       setError(null);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Lecture de room impossible.");
+      setError(nextError instanceof Error ? nextError.message : "Unable to load room state.");
     } finally {
       refreshInFlightRef.current = false;
     }
@@ -193,27 +193,27 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
         <section className="fault-card rounded-[2rem] p-6 sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">System Lobby</p>
-              <h1 className="mt-3 font-display text-4xl text-white">{preset.name} pret a etre initialise</h1>
+              <p className="arena-kicker">System Lobby</p>
+              <h1 className="mt-3 font-display text-4xl text-white">{preset.name} is ready to be initialized</h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">
-                Aucun compte de room n&apos;est encore actif pour ce preset. La premiere transaction de jeu cree la room si besoin, puis join et commit dans le meme envoi wallet.
+                No active room account exists for this preset yet. The first gameplay transaction creates the room if needed, then joins and commits within the same wallet flow.
               </p>
             </div>
             <div className="rounded-full border border-white/12 bg-black/25 px-4 py-2 text-xs uppercase tracking-[0.22em] text-white/72">
-              {preset.minPlayers}-{preset.maxPlayers} joueurs
+              {preset.minPlayers}-{preset.maxPlayers} players
             </div>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <div className="rounded-3xl border border-white/8 bg-black/20 p-5">
+            <div className="arena-stat rounded-3xl p-5">
               <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Stake</p>
               <p className="mt-3 text-2xl text-white">{formatLamports(BigInt(preset.stakeLamports))}</p>
             </div>
-            <div className="rounded-3xl border border-white/8 bg-black/20 p-5">
+            <div className="arena-stat rounded-3xl p-5">
               <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Join window</p>
               <p className="mt-3 text-2xl text-white">{preset.joinWindowSlots} slots</p>
             </div>
-            <div className="rounded-3xl border border-white/8 bg-black/20 p-5">
+            <div className="arena-stat rounded-3xl p-5">
               <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reveal window</p>
               <p className="mt-3 text-2xl text-white">{preset.revealWindowSlots} slots</p>
             </div>
@@ -235,6 +235,14 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
   }
 
   const playerIndex = publicKey ? findPlayerIndex(room, publicKey) : -1;
+  const viewerState =
+    playerIndex >= 0
+      ? {
+          label: PLAYER_STATUS_LABELS[room.playerStatuses[playerIndex]],
+          zone: room.playerStatuses[playerIndex] === 3 ? `Zone ${ZONE_LABELS[room.playerZones[playerIndex]]}` : "Hidden until reveal"
+        }
+      : null;
+  const totalPot = room.totalStakedLamports > 0n ? formatLamports(room.totalStakedLamports) : "No pot yet";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
@@ -243,37 +251,77 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
       <section className="fault-card rounded-[2rem] p-6 sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Room Detail</p>
-            <h1 className="mt-3 font-display text-4xl text-white">Faultline room {shortKey(room.publicKey, 6)}</h1>
+            <p className="arena-kicker">Room Detail</p>
+            <h1 className="mt-3 font-display text-4xl text-white">
+              {preset ? `${preset.name} Arena` : "Faultline Arena Room"} {shortKey(room.publicKey, 6)}
+            </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">
-              Room permissionless sur Solana devnet. Le premier joueur l'ouvre depuis son wallet, puis n'importe quel visiteur peut rejoindre et declencher les actions de phase necessaires.
+              Permissionless live room on Solana devnet. The first wallet opens the arena, then any visitor can join, reveal, resolve, refund, or claim as phase rules allow.
             </p>
           </div>
-          <PhaseBadge status={room.status} />
+          <div className="flex items-center gap-3">
+            <span className="arena-live-dot" />
+            <PhaseBadge status={room.status} />
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-4">
-          <div className="rounded-3xl border border-white/8 bg-black/20 p-5">
+          <div className="arena-stat rounded-3xl p-5">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Stake</p>
             <p className="mt-3 text-2xl text-white">{formatLamports(room.stakeLamports)}</p>
           </div>
-          <div className="rounded-3xl border border-white/8 bg-black/20 p-5">
+          <div className="arena-stat rounded-3xl p-5">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Players</p>
             <p className="mt-3 inline-flex items-center gap-2 text-2xl text-white">
               <Users className="size-5 text-fault-flare" />
               {room.playerCount} / {room.maxPlayers}
             </p>
           </div>
-          <div className="rounded-3xl border border-white/8 bg-black/20 p-5">
+          <div className="arena-stat rounded-3xl p-5">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commits / Reveals</p>
             <p className="mt-3 text-2xl text-white">{room.committedCount} / {room.revealedCount}</p>
           </div>
-          <div className="rounded-3xl border border-white/8 bg-black/20 p-5">
+          <div className="arena-stat rounded-3xl p-5">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Current slot</p>
             <p className="mt-3 inline-flex items-center gap-2 text-2xl text-white">
               <Clock3 className="size-5 text-fault-flare" />
               {currentSlot}
             </p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="arena-surface arena-grid-glow rounded-[1.6rem] p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="arena-chip" data-tone="signal">
+                <Radar className="size-3.5" />
+                Live room telemetry
+              </span>
+              <span className="arena-chip" data-tone="flare">
+                <Wallet className="size-3.5" />
+                Total pot {totalPot}
+              </span>
+            </div>
+            <p className="mt-4 text-sm leading-7 text-white/68">
+              This board stays synced from confirmed Solana state, so joins, reveals, refunds, and claims surface without manual refresh.
+            </p>
+          </div>
+
+          <div className="arena-surface rounded-[1.6rem] p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Your seat</p>
+            {viewerState ? (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <span className="arena-chip" data-tone="signal">
+                  <BadgeCheck className="size-3.5" />
+                  {viewerState.label}
+                </span>
+                <span className="arena-chip">{viewerState.zone}</span>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm leading-7 text-white/68">
+                You are currently spectating. Join the arena to store a local commit payload and unlock reveal and claim flows for your wallet.
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -283,15 +331,25 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
 
         <div className="space-y-6">
           <div className="fault-card rounded-[1.75rem] p-6">
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Spectator Board</p>
-            <h2 className="mt-3 font-display text-2xl text-white">Etat des participants</h2>
+            <p className="arena-kicker">Spectator Board</p>
+            <h2 className="mt-3 font-display text-2xl text-white">Track every seat in the arena.</h2>
             <div className="mt-6 space-y-3">
+              {room.playerCount === 0 ? <p className="text-sm text-white/62">No players are seated yet. The next wallet to commit will start the public join clock.</p> : null}
               {Array.from({ length: room.playerCount }, (_, index) => (
-                <div key={room.playerKeys[index].toBase58()} className="grid gap-3 rounded-2xl border border-white/8 bg-black/20 p-4 md:grid-cols-[0.34fr_0.18fr_0.18fr_0.3fr] md:items-center">
+                <div
+                  key={room.playerKeys[index].toBase58()}
+                  className={cn(
+                    "grid gap-3 rounded-2xl border border-white/8 bg-black/20 p-4 md:grid-cols-[0.34fr_0.18fr_0.18fr_0.3fr] md:items-center",
+                    "arena-fade-in",
+                    index % 3 === 1 && "arena-delay-1",
+                    index % 3 === 2 && "arena-delay-2",
+                    publicKey && room.playerKeys[index].equals(publicKey) && "border-fault-signal/35 bg-fault-signal/6"
+                  )}
+                >
                   <p className="text-sm text-white">{shortKey(room.playerKeys[index], 6)}</p>
                   <p className="text-sm text-white/70">{PLAYER_STATUS_LABELS[room.playerStatuses[index]]}</p>
-                  <p className="text-sm text-white/70">{room.playerStatuses[index] === 3 ? `Zone ${ZONE_LABELS[room.playerZones[index]]}` : "opaque"}</p>
-                  <p className="text-sm text-white/70">{room.playerStatuses[index] === 3 ? RISK_LABELS[room.playerRisks[index]] : "en attente de reveal"}</p>
+                  <p className="text-sm text-white/70">{room.playerStatuses[index] === 3 ? `Zone ${ZONE_LABELS[room.playerZones[index]]}` : "Hidden"}</p>
+                  <p className="text-sm text-white/70">{room.playerStatuses[index] === 3 ? RISK_LABELS[room.playerRisks[index]] : "Waiting for reveal"}</p>
                 </div>
               ))}
             </div>

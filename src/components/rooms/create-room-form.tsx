@@ -1,38 +1,48 @@
 "use client";
 
-import { LockKeyhole, Sparkles } from "lucide-react";
+import { LockKeyhole, Sparkles, Waves } from "lucide-react";
 
 export function CreateRoomForm() {
   return (
     <section className="fault-card rounded-[2rem] p-6 sm:p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.26em] text-fault-flare">Preset Rooms</p>
-          <h2 className="mt-3 font-display text-3xl text-white">Lobbies permanents par mise</h2>
+          <p className="arena-kicker">Preset Arenas</p>
+          <h2 className="mt-3 max-w-xl font-display text-3xl leading-tight text-white sm:text-4xl">Persistent stake lobbies built for one-signature entry.</h2>
         </div>
         <div className="rounded-full border border-fault-ember/30 bg-fault-ember/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-fault-flare">
-          Wallet only
+          Wallet native
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-black/25 p-5 text-sm text-white/70">
-        <div>
-          <p className="font-mono uppercase tracking-[0.22em] text-white/45">Mode actuel</p>
-          <p className="mt-2">Chaque mise dispose maintenant d'un lobby permanent visible en continu. La room on-chain est initialisee au premier usage, puis recyclee apres chaque partie au lieu d'etre fermee.</p>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="arena-stat rounded-[1.6rem] p-5 text-sm leading-7 text-white/70">
+          <p className="font-mono uppercase tracking-[0.22em] text-white/45">How it works</p>
+          <p className="mt-3">
+            Every stake bracket owns a permanent on-chain room. The account appears on first use, then resets after each round instead of being destroyed.
+          </p>
         </div>
-        <div>
-          <p className="mt-2">Le joueur n'entre plus par un join seul depuis la liste. Il ouvre la room, choisit ses params puis envoie une seule transaction pour initialiser si besoin, rejoindre et commit. Si la room expire sous le minimum de joueurs, le reset peut refund les joueurs directement dans la meme transaction.</p>
+        <div className="arena-stat rounded-[1.6rem] p-5 text-sm leading-7 text-white/70">
+          <p className="font-mono uppercase tracking-[0.22em] text-white/45">Why it matters</p>
+          <p className="mt-3">
+            Players no longer send a standalone join transaction. They open the room, set their read, and sign once to initialize if needed, join, and commit.
+          </p>
         </div>
       </div>
 
       <div className="mt-6 flex items-center gap-3 rounded-3xl border border-white/10 bg-black/25 p-5 text-sm text-white/72">
         <Sparkles className="size-4 text-fault-flare" />
-        <p>Les cartes a droite representent toujours les rooms 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64 et 1 SOL.</p>
+        <p>The live board always exposes the eight official presets: 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, and 1 SOL.</p>
+      </div>
+
+      <div className="mt-4 flex items-center gap-3 rounded-3xl border border-white/10 bg-black/25 p-5 text-sm text-white/72">
+        <Waves className="size-4 text-fault-signal" />
+        <p>If a room misses minimum players, the next reset path can automatically refund wallets before re-opening the arena.</p>
       </div>
 
       <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 font-display text-sm uppercase tracking-[0.2em] text-white/80">
         <LockKeyhole className="size-4 text-fault-flare" />
-        Sans relayer
+        Relayer optional
       </div>
     </section>
   );

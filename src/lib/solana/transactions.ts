@@ -53,7 +53,7 @@ export async function pollForSignatureConfirmation(args: {
 
     const currentBlockHeight = await connection.getBlockHeight(commitment);
     if (currentBlockHeight > lastValidBlockHeight) {
-      throw new Error(`Transaction expiree avant confirmation (${signature}).`);
+      throw new Error(`Transaction expired before confirmation (${signature}).`);
     }
 
     await delay(pollIntervalMs);
@@ -68,7 +68,7 @@ export async function buildTransactionErrorMessage(connection: Connection, signa
   const logs = confirmedTransaction?.meta?.logMessages?.slice(-8).join(" | ");
   const error = JSON.stringify(err);
 
-  return logs ? `Transaction echouee (${signature}): ${error}. Logs: ${logs}` : `Transaction echouee (${signature}): ${error}.`;
+  return logs ? `Transaction failed (${signature}): ${error}. Logs: ${logs}` : `Transaction failed (${signature}): ${error}.`;
 }
 
 export async function sendAndConfirm(

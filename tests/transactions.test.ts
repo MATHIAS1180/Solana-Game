@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { pollForSignatureConfirmation, sendAndConfirm } from "@/lib/solana/transactions";
 
 describe("solana transactions", () => {
-  it("retourne la signature quand la transaction est confirmee sans erreur", async () => {
+  it("returns the signature when the transaction is confirmed without error", async () => {
     const connection = {
       getLatestBlockhash: vi.fn().mockResolvedValue({
         blockhash: "blockhash-ok",
@@ -24,7 +24,7 @@ describe("solana transactions", () => {
     expect(sendTransaction).toHaveBeenCalledOnce();
   });
 
-  it("remonte les erreurs on-chain avec les logs quand la transaction echoue apres confirmation", async () => {
+  it("surfaces on-chain errors with logs when the transaction fails after confirmation", async () => {
     const connection = {
       getLatestBlockhash: vi.fn().mockResolvedValue({
         blockhash: "blockhash-ko",
@@ -43,11 +43,11 @@ describe("solana transactions", () => {
     const sendTransaction = vi.fn().mockResolvedValue("signature-ko");
 
     await expect(sendAndConfirm(connection, sendTransaction, new PublicKey(new Uint8Array(32).fill(2)), new Transaction())).rejects.toThrow(
-      /Transaction echouee \(signature-ko\).*JoinClosed/
+      /Transaction failed \(signature-ko\).*JoinClosed/
     );
   });
 
-  it("attend la confirmation en polling HTTP", async () => {
+  it("waits for confirmation by polling over HTTP", async () => {
     const connection = {
       getSignatureStatuses: vi
         .fn()

@@ -6,6 +6,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { LoaderCircle, Lock, ShieldAlert } from "lucide-react";
 
+import { useToast } from "@/components/ui/toast-provider";
 import { PLAYER_STATUS, RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { buildCommitHash, generateNonce, validateForecast } from "@/lib/faultline/commit";
 import { createCancelExpiredRoomIx, createInitRoomIx, createJoinAndCommitIx, createSubmitCommitIx } from "@/lib/faultline/instructions";
@@ -39,11 +40,11 @@ export function CommitComposer({
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
   const programId = getFaultlineProgramId();
+  const toast = useToast();
   const [zone, setZone] = useState<Zone>(0);
   const [riskBand, setRiskBand] = useState<RiskBand>(0);
   const [forecast, setForecast] = useState<Forecast>(() => getDefaultForecast(room));
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const isJoined = playerIndex >= 0;
 
   const validation = useMemo(() => validateForecast(forecast, room.minPlayers, room.maxPlayers), [forecast, room.maxPlayers, room.minPlayers]);
@@ -60,18 +61,25 @@ export function CommitComposer({
 
   async function submitCommit() {
     if (!publicKey || !sendTransaction || !programId) {
-      setMessage("Wallet non connecte ou Program ID absent.");
+      toast({
+        tone: "error",
+        title: "Wallet required",
+        description: "Connect a wallet and ensure the Faultline program ID is configured before committing."
+      });
       return;
     }
 
     if (!validation.valid) {
-      setMessage("Le forecast doit totaliser un nombre compris entre le min et le max de la room.");
+      toast({
+        tone: "error",
+        title: "Invalid forecast total",
+        description: `Your vector must sum to a value between ${room.minPlayers} and ${room.maxPlayers}.`
+      });
       return;
     }
 
     try {
       setPending(true);
-      setMessage(null);
 
       const [latestRoom, currentSlot] = await Promise.all([fetchRoom(connection, room.publicKey), connection.getSlot("confirmed")]);
       const latestPlayerIndex = latestRoom ? findPlayerIndex(latestRoom, publicKey) : -1;
@@ -79,18 +87,18 @@ export function CommitComposer({
       const needsResetBeforeJoin = latestRoom ? isExpiredUnderMinPlayers(latestRoom, currentSlot) : false;
 
       if (!latestRoom && targetPresetId === null) {
-        throw new Error("La room n'existe pas encore on-chain et aucun preset systeme n'est associe a cette page.");
+        throw new Error("This room does not exist on-chain yet and no system preset is attached to this page.");
       }
 
       if (latestRoom && latestPlayerIndex === -1 && !needsResetBeforeJoin) {
         const joinDeadlineClosed = latestRoom.playerCount > 0 && Number(latestRoom.joinDeadlineSlot) > 0 && currentSlot > Number(latestRoom.joinDeadlineSlot);
         if (latestRoom.status !== ROOM_STATUS.Open || joinDeadlineClosed || latestRoom.playerCount >= latestRoom.maxPlayers) {
-          throw new Error("La room n'est plus joignable. Rafraichis la page pour recuperer une room active.");
+          throw new Error("This room is no longer joinable. Refresh the page to load the current live state.");
         }
       }
 
       if (latestRoom && latestPlayerIndex !== -1 && latestRoom.playerStatuses[latestPlayerIndex] !== PLAYER_STATUS.Joined) {
-        throw new Error("Cette participation n'attend plus de commit. Rafraichis la page.");
+        throw new Error("This seat is no longer waiting for a commit. Refresh the page before sending another action.");
       }
 
       const nonce = generateNonce();
@@ -168,18 +176,23 @@ export function CommitComposer({
       }
 
       await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
-      setMessage(
-        `${!latestRoom ? "Creation + join + commit confirmes" : latestPlayerIndex === -1 ? "Join + commit confirmes" : "Commit verrouille"} pour ${shortKey(room.publicKey)}. Le payload est garde localement pour le reveal manuel.`
-      );
+      toast({
+        tone: "success",
+        title: !latestRoom ? "Room initialized and committed" : latestPlayerIndex === -1 ? "Joined and committed" : "Commit locked",
+        description: `Payload saved locally for manual reveal on ${shortKey(room.publicKey)}.`
+      });
       await onCommitted();
     } catch (error) {
-      setMessage(
-        error instanceof Error && error.message.includes("Database")
-          ? "IndexedDB indisponible: reveal impossible plus tard. Active le stockage local avant de commit."
-          : error instanceof Error
-            ? error.message
-            : "Commit echoue."
-      );
+      toast({
+        tone: "error",
+        title: error instanceof Error && error.message.includes("Database") ? "Local storage unavailable" : "Commit failed",
+        description:
+          error instanceof Error && error.message.includes("Database")
+            ? "IndexedDB is unavailable, so the reveal payload cannot be stored for later. Enable browser storage before committing."
+            : error instanceof Error
+              ? error.message
+              : "The commit transaction could not be completed."
+      });
     } finally {
       setPending(false);
     }
@@ -189,15 +202,15 @@ export function CommitComposer({
     <div className="fault-card rounded-[1.75rem] p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Commit Composer</p>
-          <h2 className="mt-3 font-display text-2xl text-white">Verrouiller ta lecture de foule</h2>
+          <p className="arena-kicker">Commit Composer</p>
+          <h2 className="mt-3 font-display text-2xl text-white">Lock your crowd read before anyone sees it.</h2>
         </div>
         <Lock className="size-5 text-fault-flare" />
       </div>
 
       <div className="mt-6 space-y-5">
         <div>
-          <p className="text-sm text-white/70">Zone</p>
+          <p className="text-sm text-white/70">Target zone</p>
           <div className="mt-3 grid grid-cols-5 gap-2">
             {ZONE_LABELS.map((label, index) => (
               <button
@@ -213,7 +226,7 @@ export function CommitComposer({
         </div>
 
         <div>
-          <p className="text-sm text-white/70">Risk Band</p>
+          <p className="text-sm text-white/70">Risk band</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             {RISK_LABELS.map((label, index) => (
               <button
@@ -224,7 +237,7 @@ export function CommitComposer({
               >
                 <span className="font-display text-lg">{label}</span>
                 <span className="mt-2 block text-xs uppercase tracking-[0.22em] text-white/48">
-                  {index === 0 ? "Toujours valide" : index === 1 ? "Top 2 least crowded" : "Minimum absolu"}
+                  {index === 0 ? "Always eligible" : index === 1 ? "Top 2 least crowded" : "Absolute least crowded"}
                 </span>
               </button>
             ))}
@@ -260,7 +273,7 @@ export function CommitComposer({
         <div className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/70">
           <p className="inline-flex items-center gap-2 text-fault-flare">
             <ShieldAlert className="size-4" />
-            Le nonce et le payload en clair sont stockes localement avant envoi. Sans ce stockage, le reveal sera impossible.
+            The nonce and clear payload are stored locally before send. Without that storage, manual reveal is impossible.
           </p>
         </div>
 
@@ -268,13 +281,11 @@ export function CommitComposer({
           type="button"
           onClick={() => void submitCommit()}
           disabled={pending}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-fault-ember px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] text-fault-basalt disabled:cursor-not-allowed disabled:opacity-40"
+          className="arena-primary inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Lock className="size-4" />}
-          {isJoined ? "Soumettre le commit" : "Join + Commit"}
+          {isJoined ? "Submit commit" : "Join and commit"}
         </button>
-
-        {message ? <p className="text-sm text-white/72">{message}</p> : null}
       </div>
     </div>
   );

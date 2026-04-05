@@ -9,24 +9,24 @@ export const dynamic = "force-dynamic";
 
 function toStoredPayload(body: unknown): StoredCommitPayload {
   if (!body || typeof body !== "object") {
-    throw new Error("Payload JSON invalide.");
+    throw new Error("Invalid JSON payload.");
   }
 
   const candidate = body as Record<string, unknown>;
   if (typeof candidate.room !== "string" || typeof candidate.player !== "string") {
-    throw new Error("room et player sont requis.");
+    throw new Error("room and player are required.");
   }
   if (typeof candidate.zone !== "number" || typeof candidate.riskBand !== "number") {
-    throw new Error("zone et riskBand sont requis.");
+    throw new Error("zone and riskBand are required.");
   }
   if (!Array.isArray(candidate.forecast) || candidate.forecast.length !== 5) {
-    throw new Error("forecast doit contenir 5 valeurs.");
+    throw new Error("forecast must contain exactly 5 values.");
   }
   if (!Array.isArray(candidate.nonce) || candidate.nonce.length !== 32) {
-    throw new Error("nonce doit contenir 32 valeurs.");
+    throw new Error("nonce must contain exactly 32 values.");
   }
   if (!Array.isArray(candidate.commitHash) || candidate.commitHash.length !== 32) {
-    throw new Error("commitHash doit contenir 32 valeurs.");
+    throw new Error("commitHash must contain exactly 32 values.");
   }
 
   return {
@@ -43,7 +43,7 @@ function toStoredPayload(body: unknown): StoredCommitPayload {
 
 export async function POST(request: Request) {
   if (!isAutomationStorageConfigured()) {
-    return NextResponse.json({ ok: false, error: "Stockage automation non configure." }, { status: 503 });
+    return NextResponse.json({ ok: false, error: "Automation storage is not configured." }, { status: 503 });
   }
 
   try {
@@ -58,13 +58,13 @@ export async function POST(request: Request) {
     });
 
     if (toHex(expectedHash) !== toHex(Uint8Array.from(record.commitHash))) {
-      return NextResponse.json({ ok: false, error: "Le payload ne correspond pas au commitHash fourni." }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Payload does not match the provided commitHash." }, { status: 400 });
     }
 
     await storeAutomationCommitPayload(record);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Erreur inconnue" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 400 });
   }
 }
 
@@ -72,12 +72,12 @@ export async function DELETE(request: Request) {
   try {
     const body = (await request.json()) as { room?: string; player?: string };
     if (!body.room || !body.player) {
-      return NextResponse.json({ ok: false, error: "room et player sont requis." }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "room and player are required." }, { status: 400 });
     }
 
     await deleteAutomationCommitPayload(body.room, body.player);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Erreur inconnue" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 400 });
   }
 }

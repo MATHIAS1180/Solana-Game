@@ -9,7 +9,7 @@ async function handle() {
     const summary = await runAutomationHeartbeat();
     return NextResponse.json({ ok: true, ...summary }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Erreur inconnue" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
   }
 }
 

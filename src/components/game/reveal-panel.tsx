@@ -6,6 +6,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { Eye, LoaderCircle, TriangleAlert } from "lucide-react";
 
+import { useToast } from "@/components/ui/toast-provider";
 import { RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { createRevealDecisionIx } from "@/lib/faultline/instructions";
 import { deleteStoredCommitPayload, getStoredCommitPayload } from "@/lib/faultline/storage";
@@ -23,9 +24,9 @@ export function RevealPanel({
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
   const programId = getFaultlineProgramId();
+  const toast = useToast();
   const [record, setRecord] = useState<Awaited<ReturnType<typeof getStoredCommitPayload>> | null>(null);
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadRecord() {
@@ -42,13 +43,16 @@ export function RevealPanel({
 
   async function reveal() {
     if (!publicKey || !sendTransaction || !programId || !record) {
-      setMessage("Payload reveal introuvable localement ou wallet absent.");
+      toast({
+        tone: "error",
+        title: "Reveal payload missing",
+        description: "The saved commit payload was not found locally for this wallet and room."
+      });
       return;
     }
 
     try {
       setPending(true);
-      setMessage(null);
 
       const instruction = createRevealDecisionIx({
         programId,
@@ -62,10 +66,18 @@ export function RevealPanel({
 
       await sendAndConfirm(connection, sendTransaction, publicKey, new Transaction().add(instruction));
       await deleteStoredCommitPayload(room.publicKey.toBase58(), publicKey.toBase58());
-      setMessage("Reveal transmis et verifie contre le commit stocke.");
+      toast({
+        tone: "success",
+        title: "Reveal submitted",
+        description: "The revealed payload matched the stored commit and was sent to Solana."
+      });
       await onRevealed();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Reveal echoue.");
+      toast({
+        tone: "error",
+        title: "Reveal failed",
+        description: error instanceof Error ? error.message : "The reveal transaction could not be completed."
+      });
     } finally {
       setPending(false);
     }
@@ -76,10 +88,10 @@ export function RevealPanel({
       <div className="fault-card rounded-[1.75rem] p-6">
         <div className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.22em] text-fault-flare">
           <TriangleAlert className="size-4" />
-          Reveal indisponible
+          Reveal unavailable
         </div>
         <p className="mt-4 text-sm leading-7 text-white/70">
-          Le payload committe n’a pas ete retrouve localement pour ce wallet et cette room. Sans le nonce et le forecast originel, le reveal manuel est impossible.
+          The committed payload was not found locally for this wallet and room. Without the original nonce and forecast, manual reveal is impossible.
         </p>
       </div>
     );
@@ -89,8 +101,8 @@ export function RevealPanel({
     <div className="fault-card rounded-[1.75rem] p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-fault-flare">Reveal</p>
-          <h2 className="mt-3 font-display text-2xl text-white">Rejouer exactement ce qui a ete committe</h2>
+          <p className="arena-kicker">Reveal Step</p>
+          <h2 className="mt-3 font-display text-2xl text-white">Replay the exact payload that was committed.</h2>
         </div>
         <Eye className="size-5 text-fault-flare" />
       </div>
@@ -101,7 +113,7 @@ export function RevealPanel({
           <p className="mt-2 text-xl text-white">{ZONE_LABELS[record.zone]}</p>
         </div>
         <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Risk Band</p>
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Risk band</p>
           <p className="mt-2 text-xl text-white">{RISK_LABELS[record.riskBand]}</p>
         </div>
         <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
@@ -114,13 +126,11 @@ export function RevealPanel({
         type="button"
         onClick={() => void reveal()}
         disabled={pending}
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-fault-flare px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] text-fault-basalt disabled:cursor-not-allowed disabled:opacity-40"
+        className="arena-secondary mt-6 inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-display text-sm font-semibold uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-40"
       >
         {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Eye className="size-4" />}
-        Soumettre le reveal
+        Submit reveal
       </button>
-
-      {message ? <p className="mt-4 text-sm text-white/72">{message}</p> : null}
     </div>
   );
 }
