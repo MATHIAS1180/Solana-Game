@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
@@ -18,6 +18,14 @@ import type { FaultlineRoomAccount, Forecast, RiskBand, StoredCommitPayload, Zon
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { sendAndConfirm, type TransactionSpeed } from "@/lib/solana/transactions";
 import { cn, formatLamports, shortKey } from "@/lib/utils";
+
+type RelayRecoveryStatus = {
+  checking: boolean;
+  configured: boolean;
+  mirrored: boolean;
+  ttlDays: number;
+  error: string | null;
+};
 
 function getDefaultForecast(room: FaultlineRoomAccount): Forecast {
   const base = Math.floor(room.minPlayers / 5);
@@ -103,6 +111,13 @@ export function CommitComposer({
   const [downloadBackup, setDownloadBackup] = useState(true);
   const [storeRelayRecovery, setStoreRelayRecovery] = useState(false);
   const [transactionSpeed, setTransactionSpeed] = useState<TransactionSpeed>("balanced");
+  const [relayRecoveryStatus, setRelayRecoveryStatus] = useState<RelayRecoveryStatus>({
+    checking: true,
+    configured: false,
+    mirrored: false,
+    ttlDays: 7,
+    error: null
+  });
   const isJoined = playerIndex >= 0;
 
   const validation = useMemo(() => validateForecast(forecast, room.minPlayers, room.maxPlayers), [forecast, room.maxPlayers, room.minPlayers]);
@@ -129,6 +144,63 @@ export function CommitComposer({
       cleanestLoad: Math.min(...forecast)
     };
   }, [forecast, riskBand, room.minPlayers, room.stakeLamports, room.winnerCount, validation.total, validation.valid, zone]);
+  const hasPortableRecoveryPath = downloadBackup || (storeRelayRecovery && relayRecoveryStatus.configured);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRelayRecoveryStatus() {
+      try {
+        const query = publicKey
+          ? `/api/automation/commit?room=${encodeURIComponent(room.publicKey.toBase58())}&player=${encodeURIComponent(publicKey.toBase58())}`
+          : "/api/automation/commit";
+        const response = await fetch(query, { cache: "no-store" });
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          configured?: boolean;
+          mirrored?: boolean;
+          ttlDays?: number;
+          error?: string;
+        };
+
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || "Unable to check relay recovery status.");
+        }
+
+        if (!cancelled) {
+          setRelayRecoveryStatus({
+            checking: false,
+            configured: Boolean(payload.configured),
+            mirrored: Boolean(payload.mirrored),
+            ttlDays: payload.ttlDays ?? 7,
+            error: null
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRelayRecoveryStatus({
+            checking: false,
+            configured: false,
+            mirrored: false,
+            ttlDays: 7,
+            error: error instanceof Error ? error.message : "Unable to check relay recovery status."
+          });
+        }
+      }
+    }
+
+    void loadRelayRecoveryStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey, room.publicKey]);
+
+  useEffect(() => {
+    if (!relayRecoveryStatus.configured && storeRelayRecovery) {
+      setStoreRelayRecovery(false);
+    }
+  }, [relayRecoveryStatus.configured, storeRelayRecovery]);
 
   function isExpiredUnderMinPlayers(candidate: FaultlineRoomAccount, currentSlot: number) {
     return (
@@ -157,6 +229,15 @@ export function CommitComposer({
         description: `Your vector must sum to a value between ${room.minPlayers} and ${room.maxPlayers}.`
       });
       return;
+    }
+
+    if (!hasPortableRecoveryPath) {
+      const confirmed = window.confirm(
+        "No portable recovery path is selected. If you switch browser or device before reveal, only this local browser state will still hold the manual reveal payload. Continue anyway?"
+      );
+      if (!confirmed) {
+        return;
+      }
     }
 
     try {
@@ -271,6 +352,13 @@ export function CommitComposer({
         try {
           await storeRelayBackup(storedPayload);
           relayBackupStored = true;
+          setRelayRecoveryStatus((current) => ({
+            ...current,
+            checking: false,
+            configured: true,
+            mirrored: true,
+            error: null
+          }));
         } catch (backupError) {
           toast({
             tone: "info",
@@ -474,6 +562,19 @@ export function CommitComposer({
             <ShieldAlert className="size-4" />
             The nonce and clear payload are stored locally before send. Lose this browser state and your manual reveal path is gone.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="arena-chip" data-tone="signal">Local vault active</span>
+            <span className="arena-chip" data-tone={relayRecoveryStatus.configured ? "signal" : "ember"}>
+              {relayRecoveryStatus.checking
+                ? "Checking relay recovery"
+                : relayRecoveryStatus.configured
+                  ? `Relay recovery available for ${relayRecoveryStatus.ttlDays} days`
+                  : "Relay recovery unavailable on this deployment"}
+            </span>
+            <span className="arena-chip" data-tone={hasPortableRecoveryPath ? "flare" : "ember"}>
+              {hasPortableRecoveryPath ? "Portable recovery armed" : "Portable recovery missing"}
+            </span>
+          </div>
           <label className="mt-4 flex items-center gap-3 text-sm text-white/78">
             <input
               type="checkbox"
@@ -488,11 +589,18 @@ export function CommitComposer({
               type="checkbox"
               checked={storeRelayRecovery}
               onChange={(event) => setStoreRelayRecovery(event.target.checked)}
+              disabled={!relayRecoveryStatus.configured}
               className="mt-1 h-4 w-4 rounded border-white/20 bg-transparent accent-[#7df9ff]"
             />
             <span>
               Mirror this reveal payload to the automation relay for 7-day cross-device recovery.
-              <span className="mt-1 block text-white/52">Opt-in only: this stores the clear reveal payload server-side so the relay can auto-reveal or help you recover on another device.</span>
+              <span className="mt-1 block text-white/52">
+                {relayRecoveryStatus.checking
+                  ? "Checking whether the relay mirror is available for this deployment."
+                  : relayRecoveryStatus.configured
+                    ? "Opt-in only: this stores the clear reveal payload server-side so the relay can auto-reveal or preserve cross-device recoverability."
+                    : relayRecoveryStatus.error ?? "Relay recovery is not configured here, so only local storage and exported files can protect manual reveal."}
+              </span>
             </span>
           </label>
         </div>

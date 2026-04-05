@@ -2,13 +2,35 @@ import { NextResponse } from "next/server";
 import { PublicKey } from "@solana/web3.js";
 
 import { buildCommitHash, parseStoredCommitPayload, toHex } from "@/lib/faultline/commit";
-import { deleteAutomationCommitPayload, isAutomationStorageConfigured, storeAutomationCommitPayload } from "@/lib/faultline/automation-store";
+import { deleteAutomationCommitPayload, hasAutomationCommitPayload, isAutomationStorageConfigured, storeAutomationCommitPayload } from "@/lib/faultline/automation-store";
 import type { StoredCommitPayload } from "@/lib/faultline/types";
 
 export const dynamic = "force-dynamic";
+const RECOVERY_TTL_DAYS = 7;
 
 function toStoredPayload(body: unknown): StoredCommitPayload {
   return parseStoredCommitPayload(body);
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const room = searchParams.get("room");
+  const player = searchParams.get("player");
+  const configured = isAutomationStorageConfigured();
+
+  if (!room || !player) {
+    return NextResponse.json({ ok: true, configured, mirrored: false, ttlDays: RECOVERY_TTL_DAYS });
+  }
+
+  try {
+    new PublicKey(room);
+    new PublicKey(player);
+  } catch {
+    return NextResponse.json({ ok: false, error: "room and player must be valid public keys." }, { status: 400 });
+  }
+
+  const mirrored = configured ? await hasAutomationCommitPayload(room, player) : false;
+  return NextResponse.json({ ok: true, configured, mirrored, ttlDays: RECOVERY_TTL_DAYS });
 }
 
 export async function POST(request: Request) {

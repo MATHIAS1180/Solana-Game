@@ -170,7 +170,7 @@ export function RoomActions({
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-[1.15fr_0.85fr]">
-          <div className="arena-surface arena-grid-glow rounded-[1.5rem] p-4">
+          <div className="arena-surface arena-grid-glow arena-live-clock-shell rounded-[1.5rem] p-4" data-urgency={liveWindowUrgency}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="arena-chip" data-tone="signal">
                 <TimerReset className="size-3.5" />
@@ -187,7 +187,7 @@ export function RoomActions({
               ) : null}
             </div>
             <p className="mt-4 font-mono text-xs uppercase tracking-[0.22em] text-white/45">What matters now</p>
-            <p className={cn("mt-3 font-display text-3xl text-white", liveWindowUrgency === "critical" && "arena-urgent-text")}>
+            <p className={cn("arena-live-countdown mt-3 font-display text-3xl text-white", liveWindowUrgency === "critical" && "arena-urgent-text", liveWindowUrgency === "hot" && "arena-hot-text")}>
               {liveWindowRemaining === null ? "No live clock" : formatCountdown(liveWindowRemaining)}
             </p>
             <p className="mt-4 text-sm leading-7 text-white/68">{nextWindowLabel}</p>

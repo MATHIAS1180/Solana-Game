@@ -77,6 +77,16 @@ export async function getAutomationCommitPayload(room: string, player: string) {
   return payload ? parseStoredCommitPayload(payload) : null;
 }
 
+export async function hasAutomationCommitPayload(room: string, player: string) {
+  const redis = getRedis();
+  if (!redis) {
+    return false;
+  }
+
+  const payload = await redis.exists(getCommitKey(room, player));
+  return payload === 1;
+}
+
 export async function deleteAutomationCommitPayload(room: string, player: string) {
   const redis = getRedis();
   if (!redis) {

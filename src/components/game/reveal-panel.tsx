@@ -17,6 +17,14 @@ import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { sendAndConfirm, type TransactionSpeed } from "@/lib/solana/transactions";
 import { cn } from "@/lib/utils";
 
+type RelayRecoveryStatus = {
+  checking: boolean;
+  configured: boolean;
+  mirrored: boolean;
+  ttlDays: number;
+  error: string | null;
+};
+
 async function clearRelayBackup(room: string, player: string) {
   await fetch("/api/automation/commit", {
     method: "DELETE",
@@ -42,6 +50,13 @@ export function RevealPanel({
   const [record, setRecord] = useState<StoredCommitPayload | null>(null);
   const [pending, setPending] = useState(false);
   const [transactionSpeed, setTransactionSpeed] = useState<TransactionSpeed>("balanced");
+  const [relayRecoveryStatus, setRelayRecoveryStatus] = useState<RelayRecoveryStatus>({
+    checking: true,
+    configured: false,
+    mirrored: false,
+    ttlDays: 7,
+    error: null
+  });
 
   const integrity = useMemo(() => {
     if (!record) {
@@ -91,6 +106,56 @@ export function RevealPanel({
     }
 
     void loadRecord();
+  }, [publicKey, room.publicKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRelayRecoveryStatus() {
+      try {
+        const query = publicKey
+          ? `/api/automation/commit?room=${encodeURIComponent(room.publicKey.toBase58())}&player=${encodeURIComponent(publicKey.toBase58())}`
+          : "/api/automation/commit";
+        const response = await fetch(query, { cache: "no-store" });
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          configured?: boolean;
+          mirrored?: boolean;
+          ttlDays?: number;
+          error?: string;
+        };
+
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || "Unable to check relay recovery status.");
+        }
+
+        if (!cancelled) {
+          setRelayRecoveryStatus({
+            checking: false,
+            configured: Boolean(payload.configured),
+            mirrored: Boolean(payload.mirrored),
+            ttlDays: payload.ttlDays ?? 7,
+            error: null
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRelayRecoveryStatus({
+            checking: false,
+            configured: false,
+            mirrored: false,
+            ttlDays: 7,
+            error: error instanceof Error ? error.message : "Unable to check relay recovery status."
+          });
+        }
+      }
+    }
+
+    void loadRelayRecoveryStatus();
+
+    return () => {
+      cancelled = true;
+    };
   }, [publicKey, room.publicKey]);
 
   function exportRecoveryFile() {
@@ -212,6 +277,23 @@ export function RevealPanel({
         <p className="mt-4 text-sm leading-7 text-white/70">
           The committed payload was not found locally for this wallet and room. Without the original nonce and forecast, this seat cannot prove what it locked earlier.
         </p>
+        <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/72">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Recovery posture</p>
+          <p className="mt-3 text-white/82">
+            {relayRecoveryStatus.checking
+              ? "Checking whether a relay mirror still exists for this seat."
+              : relayRecoveryStatus.mirrored
+                ? `A relay mirror still exists for this room and wallet. If automation is active, it can auto-reveal this seat during the reveal phase for up to ${relayRecoveryStatus.ttlDays} days after commit.`
+                : relayRecoveryStatus.configured
+                  ? "No relay mirror was found for this seat. Manual reveal now requires an exported recovery file from the original commit device."
+                  : relayRecoveryStatus.error ?? "Relay recovery is not configured here, so only exported recovery files can restore manual reveal on another device."}
+          </p>
+          {relayRecoveryStatus.mirrored ? (
+            <p className="mt-3 text-white/62">
+              The relay mirror is enough for automated reveal protection, but it does not expose the clear payload back to the browser. Import a recovery file only if you want manual control from this device.
+            </p>
+          ) : null}
+        </div>
         <input
           ref={fileInputRef}
           type="file"
