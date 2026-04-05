@@ -1,10 +1,37 @@
+import type { PersistentPlayerProfile } from "@/lib/faultline/metagame";
 import { PLAYER_STATUS_LABELS, ROOM_STATUS_LABELS, RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
 import type { PlayerBoardSnapshot } from "@/lib/faultline/player-profile";
 import { formatLamports, shortKey } from "@/lib/utils";
 
-export function PlayerDossier({ snapshot }: { snapshot: PlayerBoardSnapshot }) {
+export function PlayerDossier({ snapshot, profile }: { snapshot: PlayerBoardSnapshot; profile: PersistentPlayerProfile }) {
   return (
     <div className="space-y-8">
+      <section className="fault-card rounded-[2rem] p-6 sm:p-8">
+        <p className="arena-kicker">Persistent Metagame</p>
+        <h2 className="mt-3 font-display text-2xl text-white">Career footprint across resolved rounds.</h2>
+        <div className="mt-6 grid gap-4 md:grid-cols-4">
+          <div className="arena-stat rounded-3xl p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Rounds / wins</p>
+            <p className="mt-3 text-2xl text-white">{profile.roundsPlayed} / {profile.roundsWon}</p>
+          </div>
+          <div className="arena-stat rounded-3xl p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Career payout</p>
+            <p className="mt-3 text-2xl text-white">{formatLamports(BigInt(profile.totalPayoutLamports))}</p>
+          </div>
+          <div className="arena-stat rounded-3xl p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Best score</p>
+            <p className="mt-3 text-2xl text-white">{profile.bestScoreBps ?? "-"}</p>
+          </div>
+          <div className="arena-stat rounded-3xl p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Average error</p>
+            <p className="mt-3 text-2xl text-white">{profile.averageError === null ? "-" : profile.averageError.toFixed(1)}</p>
+          </div>
+        </div>
+        <div className="mt-6 rounded-[1.6rem] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/68">
+          This layer persists resolved rounds as they pass through the live board, so rivalries and long-term accuracy no longer disappear when the next room resets.
+        </div>
+      </section>
+
       <section className="fault-card rounded-[2rem] p-6 sm:p-8">
         <p className="arena-kicker">Visible Board Dossier</p>
         <h1 className="mt-3 font-display text-3xl text-white sm:text-4xl">Wallet {shortKey(snapshot.wallet, 6)}</h1>
@@ -85,6 +112,35 @@ export function PlayerDossier({ snapshot }: { snapshot: PlayerBoardSnapshot }) {
           ) : (
             <div className="arena-surface rounded-2xl p-4 text-sm leading-7 text-white/68">
               No settled seat for this wallet is currently visible on the live system board.
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="fault-card rounded-[2rem] p-6 sm:p-8">
+        <p className="arena-kicker">Recent Persistent Rounds</p>
+        <h2 className="mt-3 font-display text-2xl text-white">Last resolved appearances that stayed in the metagame ledger.</h2>
+        <div className="mt-6 space-y-3">
+          {profile.recentRounds.length > 0 ? (
+            profile.recentRounds.map((round) => (
+              <div key={round.id} className="arena-surface rounded-2xl p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <a href={`/rooms/${round.room}`} className="font-display text-xl text-white transition hover:text-fault-flare">
+                      {formatLamports(BigInt(round.stakeLamports))} Arena
+                    </a>
+                    <p className="mt-1 text-sm text-white/68">{ROOM_STATUS_LABELS[round.status]} / finish {round.finish ?? "-"}</p>
+                  </div>
+                  <div className="text-sm text-white/72 sm:text-right">
+                    <p>{BigInt(round.rewardLamports) > 0n ? `Payout ${formatLamports(BigInt(round.rewardLamports))}` : "No payout"}</p>
+                    <p className="mt-1">{round.error === null ? "No revealed error recorded" : `Error ${round.error} / Score ${round.scoreBps ?? 0}`}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="arena-surface rounded-2xl p-4 text-sm leading-7 text-white/68">
+              No resolved round has been persisted for this wallet yet.
             </div>
           )}
         </div>

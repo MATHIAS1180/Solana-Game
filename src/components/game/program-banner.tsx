@@ -11,7 +11,9 @@ import { cn, shortKey } from "@/lib/utils";
 
 const navigationLinks = [
   { href: "/" as const, label: "Home" },
-  { href: "/rooms" as const, label: "Arena" }
+  { href: "/rooms" as const, label: "Arena" },
+  { href: "/watch" as const, label: "Watch" },
+  { href: "/leaderboard" as const, label: "Leaderboard" }
 ];
 
 export function ProgramBanner() {

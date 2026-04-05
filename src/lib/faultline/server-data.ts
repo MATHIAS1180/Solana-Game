@@ -3,6 +3,7 @@ import "server-only";
 import { PublicKey } from "@solana/web3.js";
 
 import { DEFAULT_ROOM_PRESETS, matchesDefaultRoomPreset } from "@/lib/faultline/constants";
+import { getPersistentLeaderboard, getPersistentPlayerProfile, getRecentPersistentRounds, syncMetagameFromRooms } from "@/lib/faultline/metagame-store";
 import { buildPlayerBoardSnapshot } from "@/lib/faultline/player-profile";
 import { deriveRoomPda } from "@/lib/faultline/pdas";
 import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
@@ -19,7 +20,12 @@ async function buildVisibleRoomsSnapshot() {
   const connection = getServerConnection();
   const programId = getServerProgramId();
   const [rooms, currentSlot] = await Promise.all([fetchRooms(connection, programId), connection.getSlot("confirmed")]);
-  const visibleRooms = selectVisibleSystemRooms(currentSlot, rooms.filter((room) => matchesDefaultRoomPreset(room)));
+  const systemRooms = rooms.filter((room) => matchesDefaultRoomPreset(room));
+  const visibleRooms = selectVisibleSystemRooms(currentSlot, systemRooms);
+
+  await syncMetagameFromRooms(systemRooms).catch(() => {
+    // Metagame persistence should not break room snapshots.
+  });
 
   return {
     currentSlot,
@@ -61,6 +67,12 @@ async function buildRoomSnapshot(roomAddress: string) {
     };
   }
 
+  if (matchesDefaultRoomPreset(roomAccount)) {
+    await syncMetagameFromRooms([roomAccount]).catch(() => {
+      // Best-effort persistence for resolved rounds.
+    });
+  }
+
   return {
     currentSlot,
     room: serializeRoomAccount(roomAccount),
@@ -72,12 +84,35 @@ async function buildPlayerSnapshot(wallet: string) {
   const connection = getServerConnection();
   const programId = getServerProgramId();
   const [rooms, currentSlot] = await Promise.all([fetchRooms(connection, programId), connection.getSlot("confirmed")]);
+  const systemRooms = rooms.filter((room) => matchesDefaultRoomPreset(room));
+
+  await syncMetagameFromRooms(systemRooms).catch(() => {
+    // Ignore persistence issues and keep the live board available.
+  });
 
   return buildPlayerBoardSnapshot(
-    rooms.filter((room) => matchesDefaultRoomPreset(room)),
+    systemRooms,
     wallet,
     currentSlot
   );
+}
+
+export async function getPersistentMetagameSnapshot(limit = 12) {
+  const [leaderboard, recentRounds] = await Promise.all([getPersistentLeaderboard(limit), getRecentPersistentRounds(limit)]);
+
+  return {
+    leaderboard,
+    recentRounds
+  };
+}
+
+export async function getPersistentPlayerDossier(wallet: string) {
+  const [board, profile] = await Promise.all([getPlayerSnapshot(wallet), getPersistentPlayerProfile(wallet)]);
+
+  return {
+    board,
+    profile
+  };
 }
 
 export async function getVisibleRoomsSnapshot() {

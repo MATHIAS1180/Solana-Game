@@ -92,3 +92,17 @@ Backup automation optionnel:
 - tie-break lexicographique cote client
 - distribution des payouts et du reliquat
 - decode binaire d'un compte room
+
+## Evenements protocole structures
+
+Le programme emet maintenant une ligne de log stable et parseable sur les transitions majeures:
+
+- prefixe: `faultline:event:v1`
+- format: `type=... key=value key=value ...`
+- evenements couverts: `RoomInitialized`, `PlayerJoined`, `PlayerJoinedAndCommitted`, `CommitSubmitted`, `DecisionRevealed`, `TimeoutForced`, `GameResolved`, `RewardClaimed`, `RoomCancelled`
+
+But:
+
+- rendre l'indexation off-chain et les surfaces watch plus fiables
+- eviter de dependre uniquement de messages libres type `msg!("GameResolved")`
+- versionner explicitement le schema d'evenements pour les futurs outils

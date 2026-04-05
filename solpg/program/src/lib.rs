@@ -20,6 +20,7 @@ const VAULT_SEED_PREFIX: &[u8] = b"vault";
 const RESERVE_SEED_PREFIX: &[u8] = b"reserve";
 const COMMIT_DOMAIN_V1: &[u8] = b"FAULTLINE_COMMIT_V1";
 const COMMIT_DOMAIN_V2: &[u8] = b"FAULTLINE_COMMIT_V2";
+const EVENT_SCHEMA_VERSION: u8 = 1;
 const MAX_PLAYERS: usize = 12;
 const ZONE_COUNT: usize = 5;
 const MAX_WINNERS: usize = 4;
@@ -621,6 +622,7 @@ fn process_init_room(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]
         commit_window_slots,
         reveal_window_slots,
     )?;
+    emit_room_initialized(room_state_ai.key, preset_id, round_id, stake_lamports, min_players, max_players);
     msg!("RoomInitialized");
     Ok(())
 }
@@ -643,6 +645,7 @@ fn process_join_room(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRe
     maybe_start_commit_phase(room.as_mut(), slot)?;
 
     store_state(room.as_ref(), room_state_ai)?;
+    emit_player_joined("PlayerJoined", room_state_ai.key, player.key, room.player_count, room.committed_count, room.status, room.join_deadline_slot, room.commit_deadline_slot);
     msg!("PlayerJoined");
     Ok(())
 }
@@ -668,6 +671,7 @@ fn process_join_and_commit(program_id: &Pubkey, accounts: &[AccountInfo], input:
     apply_commit(room.as_mut(), index, commit_hash, slot)?;
 
     store_state(room.as_ref(), room_state_ai)?;
+    emit_player_commit("PlayerJoinedAndCommitted", room_state_ai.key, player.key, room.created_slot, room.player_count, room.committed_count, room.commit_deadline_slot);
     msg!("PlayerJoinedAndCommitted");
     Ok(())
 }
@@ -688,6 +692,7 @@ fn process_submit_commit(program_id: &Pubkey, accounts: &[AccountInfo], input: &
     apply_commit(room.as_mut(), index, commit_hash, slot)?;
 
     store_state(room.as_ref(), room_state_ai)?;
+    emit_player_commit("CommitSubmitted", room_state_ai.key, player.key, room.created_slot, room.player_count, room.committed_count, room.commit_deadline_slot);
     msg!("CommitSubmitted");
     Ok(())
 }
@@ -754,6 +759,7 @@ fn process_reveal_decision(program_id: &Pubkey, accounts: &[AccountInfo], input:
     room.active_count = room.revealed_count;
 
     store_state(room.as_ref(), room_state_ai)?;
+    emit_decision_revealed(room_state_ai.key, player.key, room.created_slot, zone, risk_band, room.revealed_count, room.reveal_deadline_slot);
     msg!("DecisionRevealed");
     Ok(())
 }
@@ -860,6 +866,7 @@ fn process_force_timeout(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progr
 
     store_state(&reserve, reserve_ai)?;
     store_state(room.as_ref(), room_state_ai)?;
+    emit_timeout_forced(room_state_ai.key, room.created_slot, room.status, room.active_count, room.slashed_to_reserve_lamports, room.reveal_deadline_slot);
     msg!("TimeoutForced");
     Ok(())
 }
@@ -952,6 +959,7 @@ fn process_resolve_game(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
 
     store_state(&reserve, reserve_ai)?;
     store_state(room.as_ref(), room_state_ai)?;
+    emit_game_resolved(room_state_ai.key, room.created_slot, room.resolve_slot, room.active_count, room.distributable_lamports, room.reserve_fee_lamports, histogram);
     msg!("GameResolved");
     Ok(())
 }
@@ -989,6 +997,7 @@ fn process_claim_reward(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progra
     }
 
     store_state(room.as_ref(), room_state_ai)?;
+    emit_reward_claimed(room_state_ai.key, player.key, room.created_slot, amount, room.status);
     msg!("RewardClaimed");
     Ok(())
 }
@@ -1023,6 +1032,7 @@ fn process_cancel_expired_room(program_id: &Pubkey, accounts: &[AccountInfo]) ->
     }
 
     store_state(room.as_ref(), room_state_ai)?;
+    emit_room_cancelled(room_state_ai.key, room.created_slot, room.player_count, room.status);
     msg!("RoomCancelled");
     Ok(())
 }
@@ -1064,6 +1074,116 @@ fn require_system_program(account: &AccountInfo) -> ProgramResult {
         return Err(FaultlineError::InvalidSystemProgram.into());
     }
     Ok(())
+}
+
+fn emit_room_initialized(room: &Pubkey, preset_id: u8, round_id: u64, stake_lamports: u64, min_players: u8, max_players: u8) {
+    msg!(
+        "faultline:event:v{} type=RoomInitialized room={} preset_id={} round_id={} stake_lamports={} min_players={} max_players={}",
+        EVENT_SCHEMA_VERSION,
+        room,
+        preset_id,
+        round_id,
+        stake_lamports,
+        min_players,
+        max_players
+    );
+}
+
+fn emit_player_joined(event_type: &str, room: &Pubkey, player: &Pubkey, player_count: u8, committed_count: u8, status: u8, join_deadline_slot: u64, commit_deadline_slot: u64) {
+    msg!(
+        "faultline:event:v{} type={} room={} player={} player_count={} committed_count={} status={} join_deadline_slot={} commit_deadline_slot={}",
+        EVENT_SCHEMA_VERSION,
+        event_type,
+        room,
+        player,
+        player_count,
+        committed_count,
+        status,
+        join_deadline_slot,
+        commit_deadline_slot
+    );
+}
+
+fn emit_player_commit(event_type: &str, room: &Pubkey, player: &Pubkey, round_id: u64, player_count: u8, committed_count: u8, commit_deadline_slot: u64) {
+    msg!(
+        "faultline:event:v{} type={} room={} player={} round_id={} player_count={} committed_count={} commit_deadline_slot={}",
+        EVENT_SCHEMA_VERSION,
+        event_type,
+        room,
+        player,
+        round_id,
+        player_count,
+        committed_count,
+        commit_deadline_slot
+    );
+}
+
+fn emit_decision_revealed(room: &Pubkey, player: &Pubkey, round_id: u64, zone: u8, risk_band: u8, revealed_count: u8, reveal_deadline_slot: u64) {
+    msg!(
+        "faultline:event:v{} type=DecisionRevealed room={} player={} round_id={} zone={} risk_band={} revealed_count={} reveal_deadline_slot={}",
+        EVENT_SCHEMA_VERSION,
+        room,
+        player,
+        round_id,
+        zone,
+        risk_band,
+        revealed_count,
+        reveal_deadline_slot
+    );
+}
+
+fn emit_timeout_forced(room: &Pubkey, round_id: u64, status: u8, active_count: u8, slashed_to_reserve_lamports: u64, reveal_deadline_slot: u64) {
+    msg!(
+        "faultline:event:v{} type=TimeoutForced room={} round_id={} status={} active_count={} slashed_to_reserve_lamports={} reveal_deadline_slot={}",
+        EVENT_SCHEMA_VERSION,
+        room,
+        round_id,
+        status,
+        active_count,
+        slashed_to_reserve_lamports,
+        reveal_deadline_slot
+    );
+}
+
+fn emit_game_resolved(room: &Pubkey, round_id: u64, resolve_slot: u64, active_count: u8, distributable_lamports: u64, reserve_fee_lamports: u64, histogram: [u8; 5]) {
+    msg!(
+        "faultline:event:v{} type=GameResolved room={} round_id={} resolve_slot={} active_count={} distributable_lamports={} reserve_fee_lamports={} histogram={},{},{},{},{}",
+        EVENT_SCHEMA_VERSION,
+        room,
+        round_id,
+        resolve_slot,
+        active_count,
+        distributable_lamports,
+        reserve_fee_lamports,
+        histogram[0],
+        histogram[1],
+        histogram[2],
+        histogram[3],
+        histogram[4]
+    );
+}
+
+fn emit_reward_claimed(room: &Pubkey, player: &Pubkey, round_id: u64, amount: u64, status: u8) {
+    msg!(
+        "faultline:event:v{} type=RewardClaimed room={} player={} round_id={} amount={} status={}",
+        EVENT_SCHEMA_VERSION,
+        room,
+        player,
+        round_id,
+        amount,
+        status
+    );
+}
+
+fn emit_room_cancelled(room: &Pubkey, round_id: u64, player_count: u8, status: u8) {
+    msg!(
+        "faultline:event:v{} type=RoomCancelled room={} round_id={} player_count={} status={}",
+        EVENT_SCHEMA_VERSION,
+        room,
+        round_id,
+        player_count,
+        status
+    );
 }
 #[inline(never)]
 fn create_pda_account<'a>(
