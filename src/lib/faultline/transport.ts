@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 
-import type { FaultlineRoomAccount, Forecast } from "@/lib/faultline/types";
+import type { FaultlineReserveAccount, FaultlineRoomAccount, Forecast } from "@/lib/faultline/types";
 
 export type SerializedFaultlineRoomAccount = {
   publicKey: string;
@@ -49,6 +49,20 @@ export type SerializedFaultlineRoomAccount = {
   playerErrors: number[];
   playerScoresBps: number[];
   playerRewardsLamports: string[];
+};
+
+export type SerializedFaultlineReserveAccount = {
+  publicKey: string;
+  version: number;
+  bump: number;
+  paused: boolean;
+  freeAccessEnabled: boolean;
+  totalCollectedLamports: string;
+  totalDistributedLamports: string;
+  antiGriefCollectedLamports: string;
+  revealTimeoutCollectedLamports: string;
+  freeAccessDistributedLamports: string;
+  authority: string;
 };
 
 export function serializeRoomAccount(room: FaultlineRoomAccount): SerializedFaultlineRoomAccount {
@@ -150,5 +164,21 @@ export function deserializeRoomAccount(room: SerializedFaultlineRoomAccount): Fa
     playerErrors: room.playerErrors,
     playerScoresBps: room.playerScoresBps,
     playerRewardsLamports: room.playerRewardsLamports.map((value) => BigInt(value))
+  };
+}
+
+export function serializeReserveAccount(reserve: FaultlineReserveAccount): SerializedFaultlineReserveAccount {
+  return {
+    publicKey: reserve.publicKey.toBase58(),
+    version: reserve.version,
+    bump: reserve.bump,
+    paused: reserve.paused,
+    freeAccessEnabled: reserve.freeAccessEnabled,
+    totalCollectedLamports: reserve.totalCollectedLamports.toString(),
+    totalDistributedLamports: reserve.totalDistributedLamports.toString(),
+    antiGriefCollectedLamports: reserve.antiGriefCollectedLamports.toString(),
+    revealTimeoutCollectedLamports: reserve.revealTimeoutCollectedLamports.toString(),
+    freeAccessDistributedLamports: reserve.freeAccessDistributedLamports.toString(),
+    authority: reserve.authority.toBase58()
   };
 }

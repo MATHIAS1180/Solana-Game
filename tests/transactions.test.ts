@@ -2,7 +2,7 @@ import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { createResolveGameIx } from "@/lib/faultline/instructions";
-import { pollForSignatureConfirmation, sendAndConfirm } from "@/lib/solana/transactions";
+import { buildTransactionErrorMessage, pollForSignatureConfirmation, sendAndConfirm } from "@/lib/solana/transactions";
 
 describe("solana transactions", () => {
   it("returns the signature when the transaction is confirmed without error", async () => {
@@ -43,9 +43,7 @@ describe("solana transactions", () => {
     } as never;
     const sendTransaction = vi.fn().mockResolvedValue("signature-ko");
 
-    await expect(sendAndConfirm(connection, sendTransaction, new PublicKey(new Uint8Array(32).fill(2)), new Transaction())).rejects.toThrow(
-      /Transaction failed \(signature-ko\).*JoinClosed/
-    );
+    await expect(sendAndConfirm(connection, sendTransaction, new PublicKey(new Uint8Array(32).fill(2)), new Transaction())).rejects.toThrow(/deja assis dans cette room/);
   });
 
   it("waits for confirmation by polling over HTTP", async () => {
@@ -78,5 +76,13 @@ describe("solana transactions", () => {
 
     expect(instruction.keys).toHaveLength(4);
     expect(instruction.keys.at(-1)?.pubkey.equals(SystemProgram.programId)).toBe(false);
+  });
+
+  it("maps generic wallet rejection errors to a clearer message", async () => {
+    const connection = {
+      getTransaction: vi.fn().mockResolvedValue({ meta: { logMessages: [] } })
+    } as never;
+
+    await expect(buildTransactionErrorMessage(connection, "signature-rejected", new Error("User rejected the request."))).resolves.toMatch(/refusee dans le wallet/);
   });
 });

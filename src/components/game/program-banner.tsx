@@ -13,7 +13,8 @@ const navigationLinks = [
   { href: "/" as const, label: "Home" },
   { href: "/rooms" as const, label: "Arena" },
   { href: "/watch" as const, label: "Watch" },
-  { href: "/leaderboard" as const, label: "Leaderboard" }
+  { href: "/leaderboard" as const, label: "Leaderboard" },
+  { href: "/reserve" as const, label: "Reserve" }
 ];
 
 export function ProgramBanner() {

@@ -29,6 +29,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.8
+    },
+    {
+      url: `${siteUrl}/reserve`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.75
     }
   ];
 

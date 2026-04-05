@@ -6,15 +6,16 @@ import { DEFAULT_ROOM_PRESETS, matchesDefaultRoomPreset } from "@/lib/faultline/
 import { getPersistentLeaderboard, getPersistentPlayerProfile, getRecentPersistentRounds, syncMetagameFromRooms } from "@/lib/faultline/metagame-store";
 import { buildPlayerBoardSnapshot } from "@/lib/faultline/player-profile";
 import { deriveRoomPda } from "@/lib/faultline/pdas";
-import { fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
+import { fetchReserve, fetchRoom, fetchRooms } from "@/lib/faultline/rooms";
 import { selectVisibleSystemRooms } from "@/lib/faultline/system-rooms";
-import { serializeRoomAccount } from "@/lib/faultline/transport";
+import { serializeReserveAccount, serializeRoomAccount } from "@/lib/faultline/transport";
 import { getServerConnection, getServerProgramId } from "@/lib/solana/server";
 
 let lastVisibleRoomsSnapshot: Awaited<ReturnType<typeof buildVisibleRoomsSnapshot>> | null = null;
 
 const lastRoomSnapshots = new Map<string, Awaited<ReturnType<typeof buildRoomSnapshot>> | null>();
 const lastPlayerSnapshots = new Map<string, Awaited<ReturnType<typeof buildPlayerSnapshot>>>();
+let lastReserveSnapshot: Awaited<ReturnType<typeof buildReserveSnapshot>> | null = null;
 
 async function buildVisibleRoomsSnapshot() {
   const connection = getServerConnection();
@@ -97,6 +98,17 @@ async function buildPlayerSnapshot(wallet: string) {
   );
 }
 
+async function buildReserveSnapshot() {
+  const connection = getServerConnection();
+  const programId = getServerProgramId();
+  const [reserve, currentSlot] = await Promise.all([fetchReserve(connection, programId), connection.getSlot("confirmed")]);
+
+  return {
+    currentSlot,
+    reserve: reserve ? serializeReserveAccount(reserve) : null
+  };
+}
+
 export async function getPersistentMetagameSnapshot(limit = 12) {
   const [leaderboard, recentRounds] = await Promise.all([getPersistentLeaderboard(limit), getRecentPersistentRounds(limit)]);
 
@@ -113,6 +125,20 @@ export async function getPersistentPlayerDossier(wallet: string) {
     board,
     profile
   };
+}
+
+export async function getReserveSnapshot() {
+  try {
+    const snapshot = await buildReserveSnapshot();
+    lastReserveSnapshot = snapshot;
+    return snapshot;
+  } catch (error) {
+    if (lastReserveSnapshot) {
+      return lastReserveSnapshot;
+    }
+
+    throw error;
+  }
 }
 
 export async function getVisibleRoomsSnapshot() {

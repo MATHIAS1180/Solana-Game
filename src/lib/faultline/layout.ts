@@ -1,7 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 
-import { MAX_PLAYERS, ROOM_STATE_SIZE, ZONE_COUNT } from "@/lib/faultline/constants";
-import type { FaultlineRoomAccount, Forecast, PlayerStatus, RiskBand, RoomStatus, Zone } from "@/lib/faultline/types";
+import { MAX_PLAYERS, RESERVE_STATE_SIZE, ROOM_STATE_SIZE, ZONE_COUNT } from "@/lib/faultline/constants";
+import type { FaultlineReserveAccount, FaultlineRoomAccount, Forecast, PlayerStatus, RiskBand, RoomStatus, Zone } from "@/lib/faultline/types";
 
 class ByteReader {
   private offset = 0;
@@ -149,5 +149,38 @@ export function decodeRoomAccount(publicKey: PublicKey, data: Buffer | Uint8Arra
     playerErrors,
     playerScoresBps,
     playerRewardsLamports
+  };
+}
+
+export function decodeReserveAccount(publicKey: PublicKey, data: Buffer | Uint8Array): FaultlineReserveAccount {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  if (bytes.length !== RESERVE_STATE_SIZE) {
+    throw new Error(`Taille de reserve inattendue: ${bytes.length}`);
+  }
+
+  const reader = new ByteReader(bytes);
+  const version = reader.readU8();
+  const bump = reader.readU8();
+  const paused = reader.readU8() === 1;
+  const freeAccessEnabled = reader.readU8() === 1;
+  const totalCollectedLamports = reader.readU64();
+  const totalDistributedLamports = reader.readU64();
+  const antiGriefCollectedLamports = reader.readU64();
+  const revealTimeoutCollectedLamports = reader.readU64();
+  const freeAccessDistributedLamports = reader.readU64();
+  const authority = readPubkey(reader);
+
+  return {
+    publicKey,
+    version,
+    bump,
+    paused,
+    freeAccessEnabled,
+    totalCollectedLamports,
+    totalDistributedLamports,
+    antiGriefCollectedLamports,
+    revealTimeoutCollectedLamports,
+    freeAccessDistributedLamports,
+    authority
   };
 }

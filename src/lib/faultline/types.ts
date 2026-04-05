@@ -81,6 +81,20 @@ export type FaultlineRoomAccount = {
   playerRewardsLamports: bigint[];
 };
 
+export type FaultlineReserveAccount = {
+  publicKey: PublicKey;
+  version: number;
+  bump: number;
+  paused: boolean;
+  freeAccessEnabled: boolean;
+  totalCollectedLamports: bigint;
+  totalDistributedLamports: bigint;
+  antiGriefCollectedLamports: bigint;
+  revealTimeoutCollectedLamports: bigint;
+  freeAccessDistributedLamports: bigint;
+  authority: PublicKey;
+};
+
 export type ScoredPlayer = {
   index: number;
   zone: Zone;

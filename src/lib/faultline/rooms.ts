@@ -1,7 +1,8 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
 import { ROOM_STATE_SIZE } from "@/lib/faultline/constants";
-import { decodeRoomAccount } from "@/lib/faultline/layout";
+import { decodeReserveAccount, decodeRoomAccount } from "@/lib/faultline/layout";
+import { deriveReservePda } from "@/lib/faultline/pdas";
 
 export async function fetchRooms(connection: Connection, programId: PublicKey) {
   const accounts = await connection.getProgramAccounts(programId, {
@@ -19,6 +20,16 @@ export async function fetchRoom(connection: Connection, room: PublicKey) {
   }
 
   return decodeRoomAccount(room, account.data);
+}
+
+export async function fetchReserve(connection: Connection, programId: PublicKey) {
+  const [reserve] = await deriveReservePda(programId);
+  const account = await connection.getAccountInfo(reserve, "confirmed");
+  if (!account) {
+    return null;
+  }
+
+  return decodeReserveAccount(reserve, account.data);
 }
 
 export function findPlayerIndex(room: { playerKeys: PublicKey[]; playerCount: number }, player: PublicKey) {
