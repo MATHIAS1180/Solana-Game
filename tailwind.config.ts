@@ -6,14 +6,14 @@ const config: Config = {
     extend: {
       colors: {
         fault: {
-          ember: "#ff6b35",
-          ash: "#efe7dc",
-          basalt: "#111111",
-          rust: "#8c3d1f",
-          flare: "#ffd166",
-          blood: "#be2f29",
-          signal: "#7df9ff",
-          mist: "#cad5df"
+          ember: "#ff7447",
+          ash: "#f7efe4",
+          basalt: "#090b11",
+          rust: "#7b341f",
+          flare: "#ffd36e",
+          blood: "#c73a2b",
+          signal: "#75f7ff",
+          mist: "#d8e4ea"
         }
       },
       boxShadow: {

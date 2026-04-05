@@ -4,10 +4,19 @@
 
 :root {
   color-scheme: dark;
-  --arena-bg: #0e1014;
-  --arena-ink: #f5efe5;
+  --arena-bg: #090b11;
+  --arena-bg-soft: #101521;
+  --arena-ink: #f7efe4;
+  --arena-ink-soft: rgba(247, 239, 228, 0.78);
   --arena-line: rgba(255, 255, 255, 0.1);
-  --arena-signal: rgba(125, 249, 255, 0.9);
+  --arena-line-strong: rgba(255, 255, 255, 0.18);
+  --arena-ember: 255, 116, 71;
+  --arena-flare: 255, 211, 110;
+  --arena-signal-rgb: 117, 247, 255;
+  --arena-signal: rgba(var(--arena-signal-rgb), 0.92);
+  --arena-surface-1: rgba(255, 255, 255, 0.06);
+  --arena-surface-2: rgba(255, 255, 255, 0.028);
+  --arena-shadow: 0 24px 72px rgba(0, 0, 0, 0.42);
 }
 
 * {
@@ -22,11 +31,13 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
+  overflow-x: hidden;
   background:
-    radial-gradient(circle at 12% 18%, rgba(255, 107, 53, 0.26), transparent 24%),
-    radial-gradient(circle at 85% 10%, rgba(125, 249, 255, 0.18), transparent 18%),
-    radial-gradient(circle at 75% 78%, rgba(255, 209, 102, 0.16), transparent 24%),
-    linear-gradient(180deg, rgba(13, 14, 18, 0.92), rgba(7, 8, 11, 0.98)),
+    radial-gradient(circle at 12% 16%, rgba(var(--arena-ember), 0.28), transparent 24%),
+    radial-gradient(circle at 84% 10%, rgba(var(--arena-signal-rgb), 0.18), transparent 18%),
+    radial-gradient(circle at 76% 76%, rgba(var(--arena-flare), 0.16), transparent 24%),
+    radial-gradient(circle at 52% -10%, rgba(255, 255, 255, 0.08), transparent 28%),
+    linear-gradient(160deg, rgba(9, 11, 17, 0.96), rgba(12, 18, 27, 0.96) 46%, rgba(7, 8, 12, 0.99)),
     var(--arena-bg);
   color: var(--arena-ink);
 }
@@ -50,9 +61,14 @@ body::before {
 
 body::after {
   background:
-    linear-gradient(120deg, rgba(255, 107, 53, 0.08), transparent 28%, transparent 72%, rgba(125, 249, 255, 0.08)),
+    linear-gradient(120deg, rgba(var(--arena-ember), 0.1), transparent 26%, transparent 72%, rgba(var(--arena-signal-rgb), 0.08)),
     radial-gradient(circle at center, rgba(255, 255, 255, 0.04), transparent 60%);
   opacity: 0.9;
+}
+
+::selection {
+  background: rgba(var(--arena-flare), 0.24);
+  color: #0e1117;
 }
 
 a {
@@ -62,8 +78,20 @@ a {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
 }
 
 .fault-card {
@@ -71,25 +99,45 @@ select {
   overflow: hidden;
   border: 1px solid var(--arena-line);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.035)),
-    linear-gradient(120deg, rgba(255, 107, 53, 0.05), transparent 40%, rgba(125, 249, 255, 0.05));
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.36);
-  backdrop-filter: blur(18px);
-  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035)),
+    linear-gradient(125deg, rgba(var(--arena-ember), 0.08), transparent 36%, rgba(var(--arena-signal-rgb), 0.07) 78%, rgba(var(--arena-flare), 0.05));
+  box-shadow: var(--arena-shadow);
+  backdrop-filter: blur(20px) saturate(120%);
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease, box-shadow 260ms ease, background 260ms ease;
 }
 
 .fault-card::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 28%, transparent 72%, rgba(125, 249, 255, 0.08));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 24%, transparent 70%, rgba(var(--arena-signal-rgb), 0.09));
   opacity: 0.75;
   pointer-events: none;
 }
 
+.fault-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -45% auto;
+  width: 16rem;
+  height: 16rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(var(--arena-ember), 0.18), transparent 62%);
+  opacity: 0.55;
+  filter: blur(24px);
+  pointer-events: none;
+  transition: transform 320ms ease, opacity 320ms ease;
+}
+
 .fault-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.42);
+  border-color: var(--arena-line-strong);
+  box-shadow: 0 32px 96px rgba(0, 0, 0, 0.48);
+  transform: translateY(-3px);
+}
+
+.fault-card:hover::after {
+  transform: scale(1.08);
+  opacity: 0.76;
 }
 
 .fault-grid {
@@ -123,24 +171,68 @@ select {
 .fault-section::before {
   position: absolute;
   inset: 0;
-  background: linear-gradient(125deg, rgba(255, 107, 53, 0.08), transparent 35%, rgba(125, 249, 255, 0.04), rgba(255, 209, 102, 0.06));
+  background: linear-gradient(125deg, rgba(var(--arena-ember), 0.09), transparent 34%, rgba(var(--arena-signal-rgb), 0.05), rgba(var(--arena-flare), 0.06));
   content: "";
   pointer-events: none;
+}
+
+.arena-shell-note {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.arena-shell-note::after {
+  content: "";
+  position: absolute;
+  inset: auto -8% -50% auto;
+  width: 10rem;
+  height: 10rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(var(--arena-signal-rgb), 0.16), transparent 60%);
+  filter: blur(20px);
+  pointer-events: none;
+}
+
+.arena-hero-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.arena-hero-shell::before {
+  content: "";
+  position: absolute;
+  inset: 8% 42% auto -8%;
+  height: 18rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(var(--arena-flare), 0.18), transparent 60%);
+  filter: blur(36px);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.arena-hero-title {
+  text-wrap: balance;
+  letter-spacing: -0.05em;
+  text-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
 }
 
 .arena-kicker {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035));
   padding: 0.7rem 1rem;
   border-radius: 9999px;
   font-family: var(--font-ibm-plex-mono);
   font-size: 0.72rem;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 26px rgba(0, 0, 0, 0.18);
 }
 
 .arena-primary,
@@ -157,13 +249,14 @@ select {
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease, background 220ms ease, color 220ms ease, box-shadow 220ms ease;
+  isolation: isolate;
 }
 
 .arena-primary {
-  background: linear-gradient(135deg, #ffd166, #ff7f50);
-  color: #17181d;
-  box-shadow: 0 20px 50px rgba(255, 107, 53, 0.28);
+  background: linear-gradient(135deg, rgba(var(--arena-flare), 1), rgba(var(--arena-ember), 0.94) 58%, rgba(255, 151, 103, 0.94));
+  color: #11131a;
+  box-shadow: 0 24px 60px rgba(var(--arena-ember), 0.24), 0 10px 22px rgba(var(--arena-flare), 0.12);
   overflow: hidden;
 }
 
@@ -177,15 +270,51 @@ select {
   pointer-events: none;
 }
 
+.arena-primary::after,
+.arena-secondary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.arena-primary::after {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.22), transparent 62%);
+}
+
 .arena-primary:hover,
 .arena-secondary:hover {
-  transform: translateY(-1px) scale(1.01);
+  transform: translateY(-2px) scale(1.01);
+}
+
+.arena-primary:hover::after,
+.arena-secondary:hover::after {
+  opacity: 1;
+}
+
+.arena-primary:active,
+.arena-secondary:active {
+  transform: translateY(0) scale(0.992);
 }
 
 .arena-secondary {
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.86);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03));
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 34px rgba(0, 0, 0, 0.16);
+}
+
+.arena-primary:focus-visible,
+.arena-secondary:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid rgba(var(--arena-signal-rgb), 0.72);
+  outline-offset: 2px;
 }
 
 .arena-live-dot {
@@ -199,17 +328,26 @@ select {
 
 .arena-stat {
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.028));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
 .arena-surface {
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.022)),
     rgba(5, 7, 10, 0.42);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 220ms ease, border-color 220ms ease, background 220ms ease, box-shadow 220ms ease;
+}
+
+.arena-stat:hover,
+.arena-surface:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 28px rgba(0, 0, 0, 0.16);
 }
 
 .arena-chip {
@@ -225,6 +363,11 @@ select {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.7);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.arena-chip:hover {
+  transform: translateY(-1px);
 }
 
 .arena-chip[data-tone="signal"] {
@@ -267,7 +410,9 @@ select {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgba(255, 209, 102, 0.92), rgba(255, 127, 80, 0.95), rgba(125, 249, 255, 0.8));
+  background: linear-gradient(90deg, rgba(var(--arena-flare), 0.92), rgba(var(--arena-ember), 0.95), rgba(var(--arena-signal-rgb), 0.82));
+  background-size: 200% 100%;
+  animation: arenaMeterFlow 7s linear infinite;
   transition: width 460ms cubic-bezier(0.22, 1, 0.36, 1), filter 220ms ease;
 }
 
@@ -279,6 +424,27 @@ select {
 
 .arena-fade-in {
   animation: arenaRise 520ms ease both;
+}
+
+.arena-nav-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.arena-mobile-strip {
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.arena-mobile-strip > * {
+  min-width: 30rem;
+}
+
+.arena-banner-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    linear-gradient(125deg, rgba(var(--arena-signal-rgb), 0.06), transparent 28%, rgba(var(--arena-ember), 0.07));
 }
 
 .arena-delay-1 {
@@ -643,6 +809,15 @@ select {
   }
 }
 
+@keyframes arenaMeterFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
 @keyframes arenaCriticalPulse {
   0%,
   100% {
@@ -708,15 +883,41 @@ select {
 }
 
 .wallet-adapter-button {
-  transition: transform 180ms ease, filter 180ms ease !important;
+  border: 1px solid rgba(var(--arena-flare), 0.22) !important;
+  background: linear-gradient(135deg, rgba(var(--arena-flare), 1), rgba(var(--arena-ember), 0.94)) !important;
+  color: #10131a !important;
+  box-shadow: 0 24px 52px rgba(var(--arena-ember), 0.24) !important;
+  transition: transform 180ms ease, filter 180ms ease, box-shadow 180ms ease !important;
 }
 
 .wallet-adapter-button:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.05);
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+  box-shadow: 0 28px 60px rgba(var(--arena-ember), 0.28) !important;
+}
+
+@media (max-width: 1024px) {
+  .arena-nav-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    mask-image: linear-gradient(90deg, transparent, white 3%, white 97%, transparent);
+  }
+
+  .arena-nav-strip > * {
+    flex: 0 0 auto;
+  }
 }
 
 @media (max-width: 768px) {
+  body {
+    background:
+      radial-gradient(circle at 18% 12%, rgba(var(--arena-ember), 0.22), transparent 26%),
+      radial-gradient(circle at 82% 0%, rgba(var(--arena-signal-rgb), 0.14), transparent 20%),
+      linear-gradient(180deg, rgba(9, 11, 17, 0.98), rgba(10, 14, 21, 0.99)),
+      var(--arena-bg);
+  }
+
   .arena-kicker {
     gap: 0.5rem;
     padding: 0.6rem 0.85rem;
@@ -732,7 +933,7 @@ select {
   }
 
   .arena-chip {
-    width: 100%;
+    max-width: 100%;
     justify-content: center;
   }
 
@@ -741,11 +942,48 @@ select {
     right: 1rem;
     width: auto;
   }
+
+  .arena-hero-title {
+    font-size: clamp(2.7rem, 12vw, 4.6rem);
+    line-height: 0.95;
+  }
+
+  .arena-mobile-strip > * {
+    min-width: 27rem;
+  }
+
+  .fault-card {
+    border-radius: 1.55rem;
+  }
 }
 
 @media (max-width: 480px) {
   .fault-card {
     backdrop-filter: blur(14px);
+  }
+
+  .arena-mobile-strip > * {
+    min-width: 24rem;
+  }
+
+  .arena-nav-strip {
+    gap: 0.4rem;
+  }
+
+  .arena-stat:hover,
+  .arena-surface:hover,
+  .fault-card:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -753,6 +991,11 @@ select {
 .fault-scrollbar::-webkit-scrollbar {
   height: 8px;
   width: 8px;
+}
+
+.fault-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 9999px;
 }
 
 .fault-scrollbar::-webkit-scrollbar-thumb {

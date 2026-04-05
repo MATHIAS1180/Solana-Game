@@ -25,7 +25,7 @@ export function ProgramBanner() {
   const programId = getFaultlineProgramId();
 
   return (
-    <div className="fault-card rounded-[1.9rem] p-5 sm:p-6">
+    <div className="fault-card arena-banner-shell rounded-[1.9rem] p-5 sm:p-6">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -44,7 +44,7 @@ export function ProgramBanner() {
             reveal your exact read later, and compete in fully deterministic on-chain standings.
           </p>
 
-          <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.22em] text-white/52">
+          <div className="arena-nav-strip fault-scrollbar text-xs uppercase tracking-[0.22em] text-white/52">
             {navigationLinks.map(({ href, label }) => (
               <Link
                 key={href}
@@ -88,7 +88,7 @@ export function ProgramBanner() {
               Live wallet game
             </span>
 
-            <WalletMultiButton className="!h-auto !w-full !rounded-full !bg-fault-ember !px-5 !py-3 !font-display !text-sm !font-semibold !uppercase !tracking-[0.2em] !text-fault-basalt sm:!w-auto" />
+            <WalletMultiButton className="!h-auto !w-full !rounded-full !bg-transparent !px-5 !py-3 !font-display !text-sm !font-semibold !uppercase !tracking-[0.2em] !text-fault-basalt sm:!w-auto" />
           </div>
         </div>
       </div>

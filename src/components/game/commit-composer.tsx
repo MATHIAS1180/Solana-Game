@@ -420,17 +420,19 @@ export function CommitComposer({
         <div>
           <p className="text-sm text-white/70">Target zone</p>
           <p className="mt-2 text-sm leading-6 text-white/52">Pick the zone you believe will finish with the best crowd imbalance once all reveals are in.</p>
-          <div className="mt-3 grid grid-cols-5 gap-2">
-            {ZONE_LABELS.map((label, index) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setZone(index as Zone)}
-                className={`rounded-2xl border px-3 py-4 text-center text-sm font-semibold uppercase tracking-[0.18em] transition ${zone === index ? "border-fault-ember bg-fault-ember text-fault-basalt" : "border-white/10 bg-black/20 text-white/70 hover:border-white/30"}`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="arena-mobile-strip fault-scrollbar mt-3">
+            <div className="grid grid-cols-5 gap-2">
+              {ZONE_LABELS.map((label, index) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setZone(index as Zone)}
+                  className={`rounded-2xl border px-3 py-4 text-center text-sm font-semibold uppercase tracking-[0.18em] transition ${zone === index ? "border-fault-ember bg-fault-ember text-fault-basalt" : "border-white/10 bg-black/20 text-white/70 hover:border-white/30"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -474,24 +476,26 @@ export function CommitComposer({
               </button>
             ))}
           </div>
-          <div className="mt-3 grid grid-cols-5 gap-2">
-            {forecast.map((value, index) => (
-              <label key={index} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center text-white/75">
-                <span className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">{ZONE_LABELS[index]}</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={room.maxPlayers}
-                  value={value}
-                  onChange={(event) => {
-                    const next = [...forecast] as Forecast;
-                    next[index] = Number(event.target.value);
-                    setForecast(next);
-                  }}
-                  className="mt-2 w-full bg-transparent text-center text-xl text-white outline-none"
-                />
-              </label>
-            ))}
+          <div className="arena-mobile-strip fault-scrollbar mt-3">
+            <div className="grid grid-cols-5 gap-2">
+              {forecast.map((value, index) => (
+                <label key={index} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center text-white/75">
+                  <span className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">{ZONE_LABELS[index]}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={room.maxPlayers}
+                    value={value}
+                    onChange={(event) => {
+                      const next = [...forecast] as Forecast;
+                      next[index] = Number(event.target.value);
+                      setForecast(next);
+                    }}
+                    className="mt-2 w-full bg-transparent text-center text-xl text-white outline-none"
+                  />
+                </label>
+              ))}
+            </div>
           </div>
           <div className="mt-4 grid gap-2 md:grid-cols-5">
             {forecast.map((value, index) => {

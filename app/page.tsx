@@ -160,7 +160,7 @@ export default async function HomePage() {
       <Script id="faultline-arena-schema" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([jsonLd, faqLd]) }} />
 
       <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col justify-between px-6 py-10 md:px-10 lg:px-12">
-        <div className="arena-fade-in flex flex-col gap-3 rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-5 py-4 text-sm text-white/72 backdrop-blur md:flex-row md:items-center md:justify-between">
+        <div className="arena-shell-note arena-fade-in flex flex-col gap-3 rounded-[1.6rem] px-5 py-4 text-sm text-white/72 backdrop-blur md:flex-row md:items-center md:justify-between">
           <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-fault-flare sm:text-xs sm:tracking-[0.32em]">Faultline Arena / Solana Devnet</span>
           <span>One-transaction entry, commit-reveal PvP, no RNG, no oracle, pure player reads.</span>
         </div>
@@ -245,7 +245,7 @@ export default async function HomePage() {
           </div>
         ) : null}
 
-        <div className="grid gap-10 py-16 lg:grid-cols-[1.08fr_0.92fr] lg:items-end">
+        <div className="arena-hero-shell grid gap-10 py-16 lg:grid-cols-[1.08fr_0.92fr] lg:items-end">
           <div className="arena-fade-in space-y-8">
             <div className="arena-kicker">
               <Sparkles className="size-4" />
@@ -253,7 +253,7 @@ export default async function HomePage() {
             </div>
 
             <div className="space-y-5">
-              <h1 className="max-w-5xl font-display text-[2.9rem] font-semibold leading-[0.94] text-white sm:text-6xl md:text-7xl xl:text-[5.5rem]">
+              <h1 className="arena-hero-title max-w-5xl font-display text-[2.9rem] font-semibold leading-[0.94] text-white sm:text-6xl md:text-7xl xl:text-[5.5rem]">
                 Predict the crowd. Lock the commit. Win the reveal.
               </h1>
               <p className="max-w-3xl text-lg leading-8 text-white/72 md:text-xl">
