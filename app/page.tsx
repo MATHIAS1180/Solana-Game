@@ -6,12 +6,14 @@ import { ArrowRight, Compass, LockKeyhole, Sparkles, Swords, Waves } from "lucid
 
 import { RivalryBoard } from "@/components/rooms/rivalry-board";
 import { ROOM_STATUS, ROOM_STATUS_LABELS } from "@/lib/faultline/constants";
+import { buildRoundReplaySlug } from "@/lib/faultline/metagame";
 import { buildLiveRivalryBoard } from "@/lib/faultline/rivalry";
-import { getVisibleRoomsSnapshot } from "@/lib/faultline/server-data";
+import { getPersistentMetagameSnapshot, getVisibleRoomsSnapshot } from "@/lib/faultline/server-data";
 import { deserializeRoomAccount } from "@/lib/faultline/transport";
-import { formatCountdown, formatLamports } from "@/lib/utils";
+import { formatCountdown, formatLamports, shortKey } from "@/lib/utils";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const DAY_SLOTS = 216_000;
 
 export const dynamic = "force-dynamic";
 
@@ -81,12 +83,16 @@ export default async function HomePage() {
   let activeSeats = 0;
   let currentSlot = 0;
   let rivalryEntries: ReturnType<typeof buildLiveRivalryBoard> = [];
+  let recentRounds: Awaited<ReturnType<typeof getPersistentMetagameSnapshot>>["recentRounds"] = [];
+  let leaderboard: Awaited<ReturnType<typeof getPersistentMetagameSnapshot>>["leaderboard"] = [];
 
   try {
-    const snapshot = await getVisibleRoomsSnapshot();
+    const [snapshot, metagame] = await Promise.all([getVisibleRoomsSnapshot(), getPersistentMetagameSnapshot(6)]);
     currentSlot = snapshot.currentSlot;
     const decodedRooms = snapshot.rooms.map(deserializeRoomAccount);
     rivalryEntries = buildLiveRivalryBoard(decodedRooms);
+    recentRounds = metagame.recentRounds;
+    leaderboard = metagame.leaderboard;
 
     const liveRooms = snapshot.rooms.filter((room) => room.playerCount > 0 && room.status !== ROOM_STATUS.Resolved && room.status !== ROOM_STATUS.Cancelled && room.status !== ROOM_STATUS.Emergency);
     liveRoomCount = liveRooms.length;
@@ -95,6 +101,15 @@ export default async function HomePage() {
   } catch {
     liveRoom = null;
   }
+
+  const recentRound = recentRounds[0] ?? null;
+  const dayRounds = currentSlot > 0 ? recentRounds.filter((round) => currentSlot - Number(round.resolveSlot) <= DAY_SLOTS) : recentRounds;
+  const daySettledVolume = dayRounds.reduce((sum, round) => sum + BigInt(round.totalStakedLamports), 0n);
+  const recentWinner = recentRound?.winnerWallets[0] ?? null;
+  const persistentLeader = leaderboard[0] ?? null;
+  const liveRoomTopShare = liveRoom
+    ? BigInt(liveRoom.distributableLamports) / BigInt(Math.max(liveRoom.winnerCount, 1))
+    : 0n;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -167,9 +182,14 @@ export default async function HomePage() {
               <p className="mt-3 max-w-3xl text-sm leading-7 text-white/68 sm:text-base">
                 {liveRoom.playerCount} players are seated, {liveRoom.committedCount} reads are locked, and the current public window is {describeLiveWindow(liveRoom, currentSlot)}.
               </p>
+              <div className="mt-5 flex flex-wrap gap-3 text-sm text-white/72">
+                <span className="arena-chip">{liveRoom.playerCount}/{liveRoom.maxPlayers} seats visible</span>
+                <span className="arena-chip">Top live share {formatLamports(liveRoomTopShare)}</span>
+                {recentWinner ? <span className="arena-chip">Last winner {shortKey(recentWinner, 6)}</span> : null}
+              </div>
             </div>
             <div className="arena-surface rounded-[1.6rem] p-5">
-              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Current pressure</p>
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Arena pulse</p>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div className="arena-stat rounded-2xl p-4">
                   <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Players</p>
@@ -179,11 +199,35 @@ export default async function HomePage() {
                   <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Window</p>
                   <p className="mt-2 text-2xl text-white">{describeLiveWindow(liveRoom, currentSlot)}</p>
                 </div>
+                <div className="arena-stat rounded-2xl p-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Settled 24h</p>
+                  <p className="mt-2 text-2xl text-white">{dayRounds.length}</p>
+                </div>
+                <div className="arena-stat rounded-2xl p-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">24h volume</p>
+                  <p className="mt-2 text-xl text-white">{formatLamports(daySettledVolume)}</p>
+                </div>
               </div>
-              <Link href={`/rooms/${liveRoom.publicKey}`} className="arena-primary mt-4 w-full px-5 py-3 text-xs uppercase tracking-[0.2em]">
-                Jump into live lane
-                <ArrowRight className="size-4" />
-              </Link>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <Link href={`/rooms/${liveRoom.publicKey}`} className="arena-primary w-full px-5 py-3 text-xs uppercase tracking-[0.2em] sm:w-auto">
+                  Jump into live lane
+                  <ArrowRight className="size-4" />
+                </Link>
+                <Link href="/watch" className="arena-secondary w-full sm:w-auto">
+                  Open watch live
+                </Link>
+              </div>
+              {recentRound ? (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/72">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-fault-flare">Latest settlement</p>
+                  <p className="mt-2 text-white">
+                    {recentWinner ? `Winner ${shortKey(recentWinner, 6)}` : "No winner recorded"} on {formatLamports(BigInt(recentRound.stakeLamports))}.
+                  </p>
+                  <Link href={`/replay/${buildRoundReplaySlug({ room: recentRound.room, createdSlot: recentRound.createdSlot })}`} className="mt-3 inline-flex text-xs uppercase tracking-[0.2em] text-fault-flare transition hover:text-white">
+                    Open replay
+                  </Link>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -231,8 +275,18 @@ export default async function HomePage() {
             <div className="grid gap-4 sm:grid-cols-3">
               {[
                 ["1 Tx entry", "Create if needed, join, and commit from one wallet flow."],
-                [liveRoomCount > 0 ? `${liveRoomCount} live lane${liveRoomCount === 1 ? "" : "s"}` : "Deterministic scoring", liveRoomCount > 0 ? "Seats are already filling across the visible board. Pressure is public before the actual reads are." : "Ranks come from real reveals, forecast error, and risk-weighted outcomes."],
-                [activeSeats > 0 ? `${activeSeats} seats filled` : "Live persistent lobbies", activeSeats > 0 ? "Players are already distributed across the board, so entry feels like jumping into pressure instead of starting from zero." : "Every stake tier stays visible so players can jump into active action faster."]
+                [
+                  recentWinner ? `Winner ${shortKey(recentWinner, 5)}` : liveRoomCount > 0 ? `${liveRoomCount} live lane${liveRoomCount === 1 ? "" : "s"}` : "Deterministic scoring",
+                  recentWinner ? "The board is not theoretical anymore. A visible wallet has already closed the last resolved round." : liveRoomCount > 0 ? "Seats are already filling across the visible board. Pressure is public before the actual reads are." : "Ranks come from real reveals, forecast error, and risk-weighted outcomes."
+                ],
+                [
+                  daySettledVolume > 0n ? formatLamports(daySettledVolume) : activeSeats > 0 ? `${activeSeats} seats filled` : "Live persistent lobbies",
+                  daySettledVolume > 0n ? `${dayRounds.length} resolved round${dayRounds.length === 1 ? "" : "s"} fed the board over the last 24h.` : activeSeats > 0 ? "Players are already distributed across the board, so entry feels like jumping into pressure instead of starting from zero." : "Every stake tier stays visible so players can jump into active action faster."
+                ],
+                [
+                  persistentLeader ? `Leader ${shortKey(persistentLeader.wallet, 5)}` : "Public ladder",
+                  persistentLeader ? `The persistent board leader is already visible, with ${persistentLeader.roundsWon} wins and ${formatLamports(BigInt(persistentLeader.totalPayoutLamports))} paid out.` : "The long-form ladder tracks who keeps shaping the board, not just one isolated room."
+                ]
               ].map(([title, text]) => (
                 <div key={title} className="arena-stat rounded-[1.5rem] p-4">
                   <p className="font-display text-lg text-white">{title}</p>

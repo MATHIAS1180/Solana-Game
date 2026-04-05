@@ -102,6 +102,10 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
   const joinableRooms = rooms.filter(
     (room) => room.status === ROOM_STATUS.Open && room.playerCount < room.maxPlayers && (room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 || currentSlot <= Number(room.joinDeadlineSlot))
   );
+  const commitLiveCount = liveRooms.filter((room) => room.status === ROOM_STATUS.Commit).length;
+  const revealLiveCount = liveRooms.filter((room) => room.status === ROOM_STATUS.Reveal).length;
+  const lockedCommits = liveRooms.reduce((sum, room) => sum + room.committedCount, 0);
+  const openedReveals = liveRooms.reduce((sum, room) => sum + room.revealedCount, 0);
   const openSeats = joinableRooms.reduce((sum, room) => sum + Math.max(room.maxPlayers - room.playerCount, 0), 0);
   const rivalryEntries = buildLiveRivalryBoard(rooms).slice(0, 5);
   const hottestRoom =
@@ -128,7 +132,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
                   Every preset stays visible, reuses the same on-chain room, and supports the single-signature path: initialize if needed, join, and commit in one wallet action.
-                  {hottestRoom ? ` Current pressure leader: ${Number(hottestRoom.stakeLamports) / 1_000_000_000} SOL with ${hottestRoom.playerCount} seated.` : ""}
+                  {hottestRoom ? ` Current pressure leader: ${Number(hottestRoom.stakeLamports) / 1_000_000_000} SOL with ${hottestRoom.playerCount} seated, ${lockedCommits} locked commits, and ${openedReveals} reveals already public across the board.` : ""}
                 </p>
               </div>
               <button
@@ -141,7 +145,7 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
               </button>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="mt-8 grid gap-4 md:grid-cols-4">
               <div className="arena-stat rounded-[1.6rem] p-5">
                 <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live lanes</p>
                 <p className="mt-3 font-display text-3xl text-white">{liveRooms.length || DEFAULT_ROOM_PRESETS.length}</p>
@@ -154,10 +158,16 @@ export function RoomsPage({ initialRooms, initialCurrentSlot = 0, initialError =
                 </p>
               </div>
               <div className="arena-stat rounded-[1.6rem] p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit / Reveal</p>
+                <p className="mt-3 text-base text-white">
+                  {commitLiveCount} commit live / {revealLiveCount} reveal live
+                </p>
+              </div>
+              <div className="arena-stat rounded-[1.6rem] p-5">
                 <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Open seats</p>
                 <p className="mt-3 inline-flex items-center gap-3 text-base text-white">
                   <span className="arena-live-dot" />
-                  {openSeats} seats are still contestable across the visible board
+                  {openSeats} seats still contestable
                 </p>
               </div>
             </div>

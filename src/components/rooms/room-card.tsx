@@ -14,6 +14,36 @@ import type { FaultlineRoomAccount, RoomPreset } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
 import { cn, formatCountdown, formatLamports, shortKey } from "@/lib/utils";
 
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function getPhaseProgress(room: FaultlineRoomAccount | null, currentSlot: number) {
+  if (!room || room.playerCount === 0) {
+    return 0;
+  }
+
+  if (room.status === ROOM_STATUS.Open && Number(room.joinDeadlineSlot) > 0) {
+    const duration = Number(room.joinDurationSlots) || 1;
+    const remaining = Math.max(Number(room.joinDeadlineSlot) - currentSlot, 0);
+    return clampPercent(((duration - remaining) / duration) * 100);
+  }
+
+  if (room.status === ROOM_STATUS.Commit && Number(room.commitDeadlineSlot) > 0) {
+    const duration = Number(room.commitDurationSlots) || 1;
+    const remaining = Math.max(Number(room.commitDeadlineSlot) - currentSlot, 0);
+    return clampPercent(((duration - remaining) / duration) * 100);
+  }
+
+  if (room.status === ROOM_STATUS.Reveal && Number(room.revealDeadlineSlot) > 0) {
+    const duration = Number(room.revealDurationSlots) || 1;
+    const remaining = Math.max(Number(room.revealDeadlineSlot) - currentSlot, 0);
+    return clampPercent(((duration - remaining) / duration) * 100);
+  }
+
+  return room.status === ROOM_STATUS.Resolved ? 100 : 0;
+}
+
 export function RoomCard({
   room,
   preset,
@@ -50,7 +80,12 @@ export function RoomCard({
             ? formatCountdown(commitRemaining)
             : formatCountdown(revealRemaining);
   const occupancyRatio = room ? Math.max(0, Math.min(100, (room.playerCount / room.maxPlayers) * 100)) : 0;
+  const phaseProgress = getPhaseProgress(room, currentSlot);
   const seatsLeft = room ? Math.max(room.maxPlayers - room.playerCount, 0) : preset.maxPlayers;
+  const currentPoolLamports = room ? room.totalStakedLamports : BigInt(preset.stakeLamports) * BigInt(preset.minPlayers);
+  const topShareLamports = room
+    ? room.distributableLamports / BigInt(Math.max(room.winnerCount, 1))
+    : BigInt(preset.stakeLamports) * BigInt(preset.minPlayers);
   const momentumLabel =
     !room || room.playerCount === 0
       ? "fresh lobby"
@@ -71,6 +106,18 @@ export function RoomCard({
           : room.status === ROOM_STATUS.Commit
             ? `${room.committedCount} private read${room.committedCount === 1 ? " is" : "s are"} already locked. Late entry is gone; only pressure remains.`
             : `The room is now revealing its real shape. Spectators can still read the pressure and wait for resolution.`;
+  const urgencyLabel =
+    !room || room.playerCount === 0
+      ? "first seat decides the tempo"
+      : canCancelExpiredRoom
+        ? "reset this lane to reopen entry"
+        : canJoinRoom && seatsLeft <= 2
+          ? `critical entry: ${seatsLeft} seat${seatsLeft === 1 ? "" : "s"} left`
+          : room.status === ROOM_STATUS.Commit
+            ? `${room.committedCount} read${room.committedCount === 1 ? "" : "s"} already sealed`
+            : room.status === ROOM_STATUS.Reveal
+              ? `${room.revealedCount}/${room.committedCount} reveals already public`
+              : `${seatsLeft} seat${seatsLeft === 1 ? "" : "s"} still open`;
 
   async function openRoom() {
     try {
@@ -121,6 +168,14 @@ export function RoomCard({
           <p className="mt-2 text-lg text-white">{formatLamports(BigInt(preset.stakeLamports))}</p>
         </div>
         <div className="arena-stat rounded-2xl p-4">
+          <p className="font-mono uppercase tracking-[0.22em] text-white/45">Current pool</p>
+          <p className="mt-2 text-lg text-white">{formatLamports(currentPoolLamports)}</p>
+        </div>
+        <div className="arena-stat rounded-2xl p-4">
+          <p className="font-mono uppercase tracking-[0.22em] text-white/45">Top live share</p>
+          <p className="mt-2 text-lg text-white">{formatLamports(topShareLamports)}</p>
+        </div>
+        <div className="arena-stat rounded-2xl p-4">
           <p className="font-mono uppercase tracking-[0.22em] text-white/45">Window</p>
           <p className="mt-2 text-lg text-white">{deadlineLabel}</p>
         </div>
@@ -134,16 +189,24 @@ export function RoomCard({
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="arena-chip" data-tone={pressureTone}>{momentumLabel}</span>
         <span className="arena-chip">{room?.playerCount ?? 0}/{preset.maxPlayers} seated</span>
+        <span className="arena-chip" data-tone={canJoinRoom && seatsLeft <= 2 ? "ember" : "signal"}>{urgencyLabel}</span>
         {room ? <span className="arena-chip">Window {deadlineLabel}</span> : null}
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 space-y-3">
         <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
           <span>Room momentum</span>
           <span>{momentumLabel}</span>
         </div>
         <div className="arena-meter h-2">
           <span style={{ width: `${occupancyRatio}%` }} />
+        </div>
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
+          <span>Phase burn</span>
+          <span>{Math.round(phaseProgress)}%</span>
+        </div>
+        <div className="arena-meter h-2">
+          <span style={{ width: `${phaseProgress}%` }} />
         </div>
       </div>
 
