@@ -38,7 +38,6 @@ export const RISK_MULTIPLIERS_BPS = [10000, 15500, 24000] as const;
 export const RISK_FAIL_MULTIPLIERS_BPS = [10000, 2500, 0] as const;
 
 export const ROOM_STATE_SIZE = 1339;
-export const PROFILE_STATE_SIZE = 136;
 export const RESERVE_STATE_SIZE = 76;
 
 export const DEFAULT_ROOM_PRESETS = [

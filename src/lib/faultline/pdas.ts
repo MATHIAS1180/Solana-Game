@@ -10,10 +10,6 @@ export async function deriveVaultPda(programId: PublicKey, roomPda: PublicKey) {
   return PublicKey.findProgramAddressSync([encoder.encode("vault"), roomPda.toBytes()], programId);
 }
 
-export async function deriveProfilePda(programId: PublicKey, player: PublicKey) {
-  return PublicKey.findProgramAddressSync([encoder.encode("profile"), player.toBytes()], programId);
-}
-
 export async function deriveReservePda(programId: PublicKey) {
   return PublicKey.findProgramAddressSync([encoder.encode("reserve")], programId);
 }

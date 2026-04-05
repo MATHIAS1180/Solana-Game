@@ -11,3 +11,5 @@ tsconfig.tsbuildinfo
 .env.test.local
 .env.production.local
 .env*.local
+solpg/program/target
+solpg/program/Cargo.lock

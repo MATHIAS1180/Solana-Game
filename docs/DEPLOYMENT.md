@@ -23,7 +23,6 @@ Ce document couvre le chemin prevu par le projet: deploiement du programme via S
 
 - Room PDA systeme: seed room + preset_id sur 1 byte
 - Vault PDA: seed vault + room_pubkey
-- Profile PDA: seed profile + player_pubkey
 - Reserve PDA: seed reserve
 
 ### Instructions attendues
@@ -38,6 +37,7 @@ Ce document couvre le chemin prevu par le projet: deploiement du programme via S
 - 7 CancelExpiredRoom
 - 8 EmergencyReturn actuellement desactive
 - 9 CloseRoom
+- 10 JoinAndCommit
 
 ### Treasury de frais
 
@@ -93,7 +93,7 @@ Optionnel:
 - KV_REST_API_TOKEN=<TOKEN_VERCEL_STORAGE_OPTIONNELLE>
 - CRON_SECRET=<SECRET_PARTAGE_AVEC_VERCEL_CRON>
 - FAULTLINE_AUTOMATION_MAX_ACTIONS=25
-- FAULTLINE_AUTOMATION_HEARTBEAT_INTERVAL_MS=45000
+- FAULTLINE_AUTOMATION_HEARTBEAT_INTERVAL_MS=10000
 
 Notes:
 

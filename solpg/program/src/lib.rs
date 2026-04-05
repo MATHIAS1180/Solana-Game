@@ -203,63 +203,6 @@ impl RoomState {
 }
 
 #[derive(Clone)]
-pub struct ProfileState {
-    pub version: u8,
-    pub bump: u8,
-    pub flags: u16,
-    pub owner: [u8; 32],
-    pub games_joined: u32,
-    pub games_committed: u32,
-    pub games_revealed: u32,
-    pub games_resolved: u32,
-    pub games_won: u32,
-    pub top1_count: u32,
-    pub top2_count: u32,
-    pub top3_count: u32,
-    pub calm_count: u32,
-    pub edge_count: u32,
-    pub knife_count: u32,
-    pub knife_hits: u32,
-    pub commit_timeout_count: u16,
-    pub reveal_timeout_count: u16,
-    pub cumulative_abs_error: u64,
-    pub cumulative_profit_lamports: i64,
-    pub last_free_access_slot: u64,
-    pub last_game_slot: u64,
-    pub reserved: [u8; 16],
-}
-
-impl ProfileState {
-    pub fn new(owner: &Pubkey, bump: u8) -> Self {
-        Self {
-            version: 1,
-            bump,
-            flags: 0,
-            owner: owner.to_bytes(),
-            games_joined: 0,
-            games_committed: 0,
-            games_revealed: 0,
-            games_resolved: 0,
-            games_won: 0,
-            top1_count: 0,
-            top2_count: 0,
-            top3_count: 0,
-            calm_count: 0,
-            edge_count: 0,
-            knife_count: 0,
-            knife_hits: 0,
-            commit_timeout_count: 0,
-            reveal_timeout_count: 0,
-            cumulative_abs_error: 0,
-            cumulative_profit_lamports: 0,
-            last_free_access_slot: 0,
-            last_game_slot: 0,
-            reserved: [0; 16],
-        }
-    }
-}
-
-#[derive(Clone)]
 pub struct ReserveState {
     pub version: u8,
     pub bump: u8,
@@ -493,74 +436,6 @@ impl FaultlineCodec for RoomState {
         for item in self.player_rewards_lamports.iter() {
             write_u64(output, &mut offset, *item)?;
         }
-        Ok(())
-    }
-}
-
-impl FaultlineCodec for ProfileState {
-    fn decode(input: &[u8]) -> Result<Self, ProgramError> {
-        if input.len() < PROFILE_STATE_SIZE {
-            return Err(FaultlineError::InvalidRoomState.into());
-        }
-
-        let mut offset = 0usize;
-        Ok(Self {
-            version: read_u8(input, &mut offset)?,
-            bump: read_u8(input, &mut offset)?,
-            flags: read_u16(input, &mut offset)?,
-            owner: read_array::<32>(input, &mut offset)?,
-            games_joined: read_u32(input, &mut offset)?,
-            games_committed: read_u32(input, &mut offset)?,
-            games_revealed: read_u32(input, &mut offset)?,
-            games_resolved: read_u32(input, &mut offset)?,
-            games_won: read_u32(input, &mut offset)?,
-            top1_count: read_u32(input, &mut offset)?,
-            top2_count: read_u32(input, &mut offset)?,
-            top3_count: read_u32(input, &mut offset)?,
-            calm_count: read_u32(input, &mut offset)?,
-            edge_count: read_u32(input, &mut offset)?,
-            knife_count: read_u32(input, &mut offset)?,
-            knife_hits: read_u32(input, &mut offset)?,
-            commit_timeout_count: read_u16(input, &mut offset)?,
-            reveal_timeout_count: read_u16(input, &mut offset)?,
-            cumulative_abs_error: read_u64(input, &mut offset)?,
-            cumulative_profit_lamports: read_i64(input, &mut offset)?,
-            last_free_access_slot: read_u64(input, &mut offset)?,
-            last_game_slot: read_u64(input, &mut offset)?,
-            reserved: read_array::<16>(input, &mut offset)?,
-        })
-    }
-
-    fn encode(&self, output: &mut [u8]) -> ProgramResult {
-        if output.len() < PROFILE_STATE_SIZE {
-            return Err(FaultlineError::InvalidRoomState.into());
-        }
-        output.fill(0);
-
-        let mut offset = 0usize;
-        write_u8(output, &mut offset, self.version)?;
-        write_u8(output, &mut offset, self.bump)?;
-        write_u16(output, &mut offset, self.flags)?;
-        write_bytes(output, &mut offset, &self.owner)?;
-        write_u32(output, &mut offset, self.games_joined)?;
-        write_u32(output, &mut offset, self.games_committed)?;
-        write_u32(output, &mut offset, self.games_revealed)?;
-        write_u32(output, &mut offset, self.games_resolved)?;
-        write_u32(output, &mut offset, self.games_won)?;
-        write_u32(output, &mut offset, self.top1_count)?;
-        write_u32(output, &mut offset, self.top2_count)?;
-        write_u32(output, &mut offset, self.top3_count)?;
-        write_u32(output, &mut offset, self.calm_count)?;
-        write_u32(output, &mut offset, self.edge_count)?;
-        write_u32(output, &mut offset, self.knife_count)?;
-        write_u32(output, &mut offset, self.knife_hits)?;
-        write_u16(output, &mut offset, self.commit_timeout_count)?;
-        write_u16(output, &mut offset, self.reveal_timeout_count)?;
-        write_u64(output, &mut offset, self.cumulative_abs_error)?;
-        write_i64(output, &mut offset, self.cumulative_profit_lamports)?;
-        write_u64(output, &mut offset, self.last_free_access_slot)?;
-        write_u64(output, &mut offset, self.last_game_slot)?;
-        write_bytes(output, &mut offset, &self.reserved)?;
         Ok(())
     }
 }
@@ -1326,10 +1201,6 @@ fn write_u64(data: &mut [u8], offset: &mut usize, value: u64) -> ProgramResult {
     write_bytes(data, offset, &value.to_le_bytes())
 }
 
-fn write_i64(data: &mut [u8], offset: &mut usize, value: i64) -> ProgramResult {
-    write_bytes(data, offset, &value.to_le_bytes())
-}
-
 fn write_bool(data: &mut [u8], offset: &mut usize, value: bool) -> ProgramResult {
     write_u8(data, offset, if value { 1 } else { 0 })
 }
@@ -1710,13 +1581,6 @@ fn read_u32(input: &[u8], offset: &mut usize) -> Result<u32, ProgramError> {
 fn read_u64(input: &[u8], offset: &mut usize) -> Result<u64, ProgramError> {
     let bytes = read_slice(input, offset, 8)?;
     Ok(u64::from_le_bytes([
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-    ]))
-}
-
-fn read_i64(input: &[u8], offset: &mut usize) -> Result<i64, ProgramError> {
-    let bytes = read_slice(input, offset, 8)?;
-    Ok(i64::from_le_bytes([
         bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
     ]))
 }
