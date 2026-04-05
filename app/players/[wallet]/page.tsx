@@ -3,7 +3,7 @@ import { PublicKey } from "@solana/web3.js";
 
 import { ProgramBanner } from "@/components/game/program-banner";
 import { PlayerDossier } from "@/components/players/player-dossier";
-import { getPersistentPlayerDossier } from "@/lib/faultline/server-data";
+import { getPersistentPlayerDossier, getReserveSnapshot } from "@/lib/faultline/server-data";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +38,12 @@ export default async function PlayerRoute({ params }: { params: Promise<{ wallet
     );
   }
 
-  const snapshot = await getPersistentPlayerDossier(wallet);
+  const [snapshot, reserveSnapshot] = await Promise.all([getPersistentPlayerDossier(wallet), getReserveSnapshot()]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
       <ProgramBanner />
-      <PlayerDossier snapshot={snapshot.board} profile={snapshot.profile} />
+      <PlayerDossier snapshot={snapshot.board} profile={snapshot.profile} reserve={reserveSnapshot.reserve} />
     </main>
   );
 }

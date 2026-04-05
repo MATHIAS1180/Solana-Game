@@ -13,6 +13,7 @@ const navigationLinks = [
   { href: "/" as const, label: "Home" },
   { href: "/rooms" as const, label: "Arena" },
   { href: "/watch" as const, label: "Watch" },
+  { href: "/alerts" as const, label: "Alerts" },
   { href: "/leaderboard" as const, label: "Leaderboard" },
   { href: "/reserve" as const, label: "Reserve" }
 ];

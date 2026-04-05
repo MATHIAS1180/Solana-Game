@@ -1,9 +1,13 @@
+import { getFairAccessReadiness, getReserveAvailableLamports } from "@/lib/faultline/fair-access";
 import { buildRoundReplaySlug, type PersistentPlayerProfile } from "@/lib/faultline/metagame";
 import { PLAYER_STATUS_LABELS, ROOM_STATUS_LABELS, RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
 import type { PlayerBoardSnapshot } from "@/lib/faultline/player-profile";
+import type { SerializedFaultlineReserveAccount } from "@/lib/faultline/transport";
 import { formatLamports, shortKey } from "@/lib/utils";
 
-export function PlayerDossier({ snapshot, profile }: { snapshot: PlayerBoardSnapshot; profile: PersistentPlayerProfile }) {
+export function PlayerDossier({ snapshot, profile, reserve }: { snapshot: PlayerBoardSnapshot; profile: PersistentPlayerProfile; reserve: SerializedFaultlineReserveAccount | null }) {
+  const readiness = getFairAccessReadiness(profile, reserve);
+
   return (
     <div className="space-y-8">
       <section className="fault-card rounded-[2rem] p-6 sm:p-8">
@@ -29,6 +33,39 @@ export function PlayerDossier({ snapshot, profile }: { snapshot: PlayerBoardSnap
         </div>
         <div className="mt-6 rounded-[1.6rem] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/68">
           This layer persists resolved rounds as they pass through the live board, so rivalries and long-term accuracy no longer disappear when the next room resets.
+        </div>
+      </section>
+
+      <section className="fault-card rounded-[2rem] p-6 sm:p-8">
+        <p className="arena-kicker">Fair Access Readiness</p>
+        <h2 className="mt-3 font-display text-2xl text-white">Reserve-facing discipline, shown honestly instead of implied.</h2>
+        <div className="mt-6 grid gap-4 md:grid-cols-4">
+          <div className="arena-stat rounded-3xl p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Readiness score</p>
+            <p className="mt-3 text-2xl text-white">{readiness.score}</p>
+          </div>
+          <div className="arena-stat rounded-3xl p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Timeout ratio</p>
+            <p className="mt-3 text-2xl text-white">{readiness.timeoutRate === null ? "-" : `${(readiness.timeoutRate * 100).toFixed(1)}%`}</p>
+          </div>
+          <div className="arena-stat rounded-3xl p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reveal rate</p>
+            <p className="mt-3 text-2xl text-white">{readiness.revealRate === null ? "-" : `${(readiness.revealRate * 100).toFixed(1)}%`}</p>
+          </div>
+          <div className="arena-stat rounded-3xl p-5">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reserve balance</p>
+            <p className="mt-3 text-2xl text-white">{reserve ? formatLamports(getReserveAvailableLamports(reserve)) : "-"}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-2">
+          <span className="arena-chip" data-tone={readiness.tone}>{readiness.label}</span>
+          {reserve ? <span className="arena-chip">Free access {reserve.freeAccessEnabled ? "enabled" : "not active"}</span> : null}
+        </div>
+        <div className="mt-6 rounded-[1.6rem] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/68">
+          {readiness.description}
+          <a href="/reserve" className="mt-3 block text-xs uppercase tracking-[0.2em] text-fault-flare transition hover:text-white">
+            Open reserve console
+          </a>
         </div>
       </section>
 
