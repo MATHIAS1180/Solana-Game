@@ -5,6 +5,7 @@ import { decodeRoomAccount } from "@/lib/faultline/layout";
 
 export async function fetchRooms(connection: Connection, programId: PublicKey) {
   const accounts = await connection.getProgramAccounts(programId, {
+    commitment: "confirmed",
     filters: [{ dataSize: ROOM_STATE_SIZE }]
   });
 
@@ -12,7 +13,7 @@ export async function fetchRooms(connection: Connection, programId: PublicKey) {
 }
 
 export async function fetchRoom(connection: Connection, room: PublicKey) {
-  const account = await connection.getAccountInfo(room);
+  const account = await connection.getAccountInfo(room, "confirmed");
   if (!account) {
     return null;
   }

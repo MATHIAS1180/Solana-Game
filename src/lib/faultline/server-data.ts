@@ -9,26 +9,9 @@ import { selectVisibleSystemRooms } from "@/lib/faultline/system-rooms";
 import { serializeRoomAccount } from "@/lib/faultline/transport";
 import { getServerConnection, getServerProgramId } from "@/lib/solana/server";
 
-const SNAPSHOT_TTL_MS = 10_000;
+let lastVisibleRoomsSnapshot: Awaited<ReturnType<typeof buildVisibleRoomsSnapshot>> | null = null;
 
-let visibleRoomsCache:
-  | {
-      fetchedAt: number;
-      snapshot: Awaited<ReturnType<typeof buildVisibleRoomsSnapshot>>;
-    }
-  | null = null;
-
-const roomSnapshotCache = new Map<
-  string,
-  {
-    fetchedAt: number;
-    snapshot: Awaited<ReturnType<typeof buildRoomSnapshot>> | null;
-  }
->();
-
-function isFresh(fetchedAt: number) {
-  return Date.now() - fetchedAt <= SNAPSHOT_TTL_MS;
-}
+const lastRoomSnapshots = new Map<string, Awaited<ReturnType<typeof buildRoomSnapshot>> | null>();
 
 async function buildVisibleRoomsSnapshot() {
   const connection = getServerConnection();
@@ -84,17 +67,13 @@ async function buildRoomSnapshot(roomAddress: string) {
 }
 
 export async function getVisibleRoomsSnapshot() {
-  if (visibleRoomsCache && isFresh(visibleRoomsCache.fetchedAt)) {
-    return visibleRoomsCache.snapshot;
-  }
-
   try {
     const snapshot = await buildVisibleRoomsSnapshot();
-    visibleRoomsCache = { fetchedAt: Date.now(), snapshot };
+    lastVisibleRoomsSnapshot = snapshot;
     return snapshot;
   } catch (error) {
-    if (visibleRoomsCache) {
-      return visibleRoomsCache.snapshot;
+    if (lastVisibleRoomsSnapshot) {
+      return lastVisibleRoomsSnapshot;
     }
 
     throw error;
@@ -102,18 +81,13 @@ export async function getVisibleRoomsSnapshot() {
 }
 
 export async function getRoomSnapshot(roomAddress: string) {
-  const cached = roomSnapshotCache.get(roomAddress);
-  if (cached && isFresh(cached.fetchedAt)) {
-    return cached.snapshot;
-  }
-
   try {
     const snapshot = await buildRoomSnapshot(roomAddress);
-    roomSnapshotCache.set(roomAddress, { fetchedAt: Date.now(), snapshot });
+    lastRoomSnapshots.set(roomAddress, snapshot);
     return snapshot;
   } catch (error) {
-    if (cached) {
-      return cached.snapshot;
+    if (lastRoomSnapshots.has(roomAddress)) {
+      return lastRoomSnapshots.get(roomAddress) ?? null;
     }
 
     throw error;
