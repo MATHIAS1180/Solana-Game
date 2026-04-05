@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction } from "@solana/web3.js";
-import { Eye, LoaderCircle, TriangleAlert, Upload } from "lucide-react";
+import { Download, Eye, LoaderCircle, ShieldCheck, TriangleAlert, Upload } from "lucide-react";
 
 import { TransactionSpeedControl } from "@/components/game/transaction-speed-control";
 import { useToast } from "@/components/ui/toast-provider";
@@ -92,6 +92,26 @@ export function RevealPanel({
 
     void loadRecord();
   }, [publicKey, room.publicKey]);
+
+  function exportRecoveryFile() {
+    if (!record) {
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(record, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `faultline-reveal-${room.publicKey.toBase58().slice(0, 8)}-${record.roundId}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({
+      tone: "success",
+      title: "Recovery exported",
+      description: "A local backup of this sealed payload has been downloaded.",
+      durationMs: 5200
+    });
+  }
 
   async function importRecoveryFile(file: File | undefined) {
     if (!file) {
@@ -215,12 +235,14 @@ export function RevealPanel({
     );
   }
 
+  const forecastTotal = record.forecast.reduce((sum, value) => sum + value, 0);
+
   return (
     <div className="fault-card rounded-[1.75rem] p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="arena-kicker">Reveal Step</p>
-          <h2 className="mt-3 font-display text-2xl text-white">Open the sealed read and let the room score it.</h2>
+          <h2 className="mt-3 font-display text-2xl text-white">Break the seal only when the proof path is clean.</h2>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68">
             Reveal must replay the exact hidden payload. Any mismatch breaks the proof, so this step is binary: exact or invalid.
           </p>
@@ -228,43 +250,82 @@ export function RevealPanel({
         <Eye className="size-5 text-fault-flare" />
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-4">
-        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Seal</p>
-          <p className="mt-2 text-white">{integrity?.versionLabel}</p>
-          <p className={cn("mt-2 text-xs uppercase tracking-[0.22em]", integrity?.matches ? "text-fault-signal" : "text-fault-flare")}>{integrity?.matches ? "Integrity check passed" : "Integrity check failed"}</p>
+      <div className="arena-proof-shell mt-6 rounded-[1.6rem] p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="arena-chip" data-tone={integrity?.matches ? "signal" : "ember"}>
+            <ShieldCheck className="size-3.5" />
+            {integrity?.matches ? "Hash checking passed" : "Hash checking failed"}
+          </span>
+          <span className="arena-chip">{integrity?.versionLabel}</span>
+          <span className="arena-chip">Round #{record.roundId}</span>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit hash</p>
-          <p className="mt-2 font-mono text-white">{integrity?.shortHash}</p>
-        </div>
-        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Round id</p>
-          <p className="mt-2 font-mono text-white">#{record.roundId}</p>
-        </div>
-        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Local commit time</p>
-          <p className="mt-2 text-white">{integrity?.createdLabel}</p>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Integrity path</p>
+            <h3 className={cn("mt-3 font-display text-3xl text-white", !integrity?.matches && "text-fault-flare")}>{integrity?.matches ? "Byte-for-byte match confirmed" : "The stored payload no longer matches the seal"}</h3>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/72">
+              The protocol recomputes the commit hash from the exact room, wallet, round id, zone, risk band, forecast, and nonce. Only an exact match can open the envelope.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Commit hash</p>
+              <p className="mt-2 font-mono text-white">{integrity?.shortHash}</p>
+            </div>
+            <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Local commit time</p>
+              <p className="mt-2 text-white">{integrity?.createdLabel}</p>
+            </div>
+            <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74 sm:col-span-2">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Reveal outcome</p>
+              <p className={cn("mt-2 text-white", integrity?.matches ? "text-fault-signal" : "text-fault-flare")}>{integrity?.matches ? "This envelope can be opened on-chain." : "Import a valid recovery file before attempting reveal."}</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
+      <div className="mt-6 grid gap-4 md:grid-cols-4">
+        <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Zone</p>
           <p className="mt-2 text-xl text-white">{ZONE_LABELS[record.zone]}</p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
+        <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Risk band</p>
           <p className="mt-2 text-xl text-white">{RISK_LABELS[record.riskBand]}</p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-black/25 p-4 text-sm text-white/74">
+        <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Forecast</p>
           <p className="mt-2 font-mono text-xl text-white">[{record.forecast.join(", ")}]</p>
+        </div>
+        <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Forecast total</p>
+          <p className="mt-2 text-xl text-white">{forecastTotal}</p>
         </div>
       </div>
 
       <div className="mt-6">
         <TransactionSpeedControl value={transactionSpeed} onChange={setTransactionSpeed} compact />
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="arena-secondary inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em]"
+        >
+          <Upload className="size-4" />
+          Import another recovery file
+        </button>
+        <button
+          type="button"
+          onClick={exportRecoveryFile}
+          className="arena-secondary inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em]"
+        >
+          <Download className="size-4" />
+          Export sealed backup
+        </button>
       </div>
 
       <button

@@ -85,6 +85,32 @@ function buildPendingRoom(roomAddress: string, preset: RoomPreset): FaultlineRoo
   };
 }
 
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function getPhaseProgress(room: FaultlineRoomAccount, currentSlot: number) {
+  if (room.status === ROOM_STATUS.Open && room.playerCount > 0 && Number(room.joinDeadlineSlot) > 0) {
+    const duration = Number(room.joinDurationSlots) || 1;
+    const remaining = Math.max(Number(room.joinDeadlineSlot) - currentSlot, 0);
+    return clampPercent(((duration - remaining) / duration) * 100);
+  }
+
+  if (room.status === ROOM_STATUS.Commit && Number(room.commitDeadlineSlot) > 0) {
+    const duration = Number(room.commitDurationSlots) || 1;
+    const remaining = Math.max(Number(room.commitDeadlineSlot) - currentSlot, 0);
+    return clampPercent(((duration - remaining) / duration) * 100);
+  }
+
+  if (room.status === ROOM_STATUS.Reveal && Number(room.revealDeadlineSlot) > 0) {
+    const duration = Number(room.revealDurationSlots) || 1;
+    const remaining = Math.max(Number(room.revealDeadlineSlot) - currentSlot, 0);
+    return clampPercent(((duration - remaining) / duration) * 100);
+  }
+
+  return room.status === ROOM_STATUS.Resolved ? 100 : 0;
+}
+
 function getPhasePresentation(room: FaultlineRoomAccount, currentSlot: number) {
   const joinRemaining = room.playerCount === 0 || Number(room.joinDeadlineSlot) === 0 ? null : Number(room.joinDeadlineSlot) - currentSlot;
   const commitRemaining = Number(room.commitDeadlineSlot) > 0 ? Number(room.commitDeadlineSlot) - currentSlot : null;
@@ -96,9 +122,11 @@ function getPhasePresentation(room: FaultlineRoomAccount, currentSlot: number) {
         return {
           phase: "open",
           label: "Waiting for the first seat",
+          countdownLabel: "Public clock",
           countdown: "Standby",
           urgent: false,
-          description: "This lane is armed but empty. The next wallet starts the public join clock and sets the pressure profile of the round."
+          description: "This lane is armed but empty. The next wallet starts the public join clock and sets the pressure profile of the round.",
+          cue: "Low-information entry. The first seat chooses when spectators stop seeing a dead board and start seeing real pressure."
         };
       }
 
@@ -106,58 +134,72 @@ function getPhasePresentation(room: FaultlineRoomAccount, currentSlot: number) {
         return {
           phase: "open",
           label: "Reset window is live",
+          countdownLabel: "Reset pressure",
           countdown: "Expired",
           urgent: true,
-          description: "The room missed minimum participation. Anyone can cancel, refund, and reopen the same lane without an operator."
+          description: "The room missed minimum participation. Anyone can cancel, refund, and reopen the same lane without an operator.",
+          cue: "This is the protocol cleaning itself. The next actor restores a fair lane instead of waiting for an admin to intervene."
         };
       }
 
       return {
         phase: "open",
         label: room.playerCount < room.minPlayers ? "Seats still needed" : "Open pressure building",
+        countdownLabel: "Join clock",
         countdown: joinRemaining === null ? "Standby" : formatCountdown(joinRemaining),
         urgent: joinRemaining !== null && joinRemaining <= 30,
-        description: "The crowd is still forming. This is the last low-information moment before private reads start locking the room."
+        description: "The crowd is still forming. This is the last low-information moment before private reads start locking the room.",
+        cue: "Entry still changes the social shape of the room. Once commit starts, the scoreboard stays visible but the real beliefs disappear behind the seal."
       };
     case ROOM_STATUS.Commit:
       return {
         phase: "commit",
         label: "Private reads locking now",
+        countdownLabel: "Commit clock",
         countdown: commitRemaining === null ? "Live" : formatCountdown(commitRemaining),
         urgent: commitRemaining !== null && commitRemaining <= 30,
-        description: "Commits are live. Players can still disagree radically, but the room is already sealed against late adaptation."
+        description: "Commits are live. Players can still disagree radically, but the room is already sealed against late adaptation.",
+        cue: "The board still looks simple from the outside, but every new commit increases hidden divergence under the surface."
       };
     case ROOM_STATUS.Reveal:
       return {
         phase: "reveal",
         label: room.revealedCount === room.committedCount ? "Ready to resolve" : "Final truth entering the room",
+        countdownLabel: "Reveal clock",
         countdown: revealRemaining === null ? "Live" : formatCountdown(revealRemaining),
         urgent: revealRemaining !== null && revealRemaining <= 30,
-        description: "The sealed reads are opening. Every reveal sharpens the histogram, changes band outcomes, and shifts who still owns live equity."
+        description: "The sealed reads are opening. Every reveal sharpens the histogram, changes band outcomes, and shifts who still owns live equity.",
+        cue: "This is the most volatile phase in the room. Every envelope opened can move the histogram and the payout line in public."
       };
     case ROOM_STATUS.Resolved:
       return {
         phase: "resolved",
         label: "Outcome fixed on-chain",
+        countdownLabel: "Settlement state",
         countdown: "Resolved",
         urgent: false,
-        description: "The room is done. What matters now is understanding the miss, claiming if you cashed, and queuing the same lane again."
+        description: "The room is done. What matters now is understanding the miss, claiming if you cashed, and queuing the same lane again.",
+        cue: "The emotional loop now shifts from tension to post-mortem. Good result screens should make both winners and near-misses want another read."
       };
     case ROOM_STATUS.Cancelled:
       return {
         phase: "cancelled",
         label: "Round voided",
+        countdownLabel: "Protocol state",
         countdown: "Cancelled",
         urgent: false,
-        description: "This round never reached a valid scoring state. Only refunds and reset logic matter now."
+        description: "This round never reached a valid scoring state. Only refunds and reset logic matter now.",
+        cue: "No drama here. The only useful action is to restore fairness and reopen the lane."
       };
     default:
       return {
         phase: "emergency",
         label: "Emergency state",
+        countdownLabel: "Protocol state",
         countdown: "Paused",
         urgent: false,
-        description: "The normal loop is interrupted. Only trust-preserving recovery actions should remain available."
+        description: "The normal loop is interrupted. Only trust-preserving recovery actions should remain available.",
+        cue: "Normal gameplay is no longer the priority. Transparency and damage containment are."
       };
   }
 }
@@ -326,6 +368,10 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
         }
       : null;
   const totalPot = room.totalStakedLamports > 0n ? formatLamports(room.totalStakedLamports) : "No pot yet";
+  const phaseProgress = getPhaseProgress(room, currentSlot);
+  const liveShare = room.distributableLamports > 0n ? room.distributableLamports / BigInt(Math.max(room.winnerCount, 1)) : 0n;
+  const seatsLeft = Math.max(room.maxPlayers - room.playerCount, 0);
+  const occupancyRatio = room.maxPlayers > 0 ? Math.round((room.playerCount / room.maxPlayers) * 100) : 0;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 md:px-10 lg:px-12">
@@ -339,7 +385,7 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
               {preset ? `${preset.name} Arena` : "Faultline Arena Room"} {shortKey(room.publicKey, 6)}
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">
-              Permissionless live room on Solana devnet. The first wallet opens the arena, then any visitor can join, reveal, resolve, refund, or claim as phase rules allow.
+              {phase.description}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -375,11 +421,11 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr]">
-          <div className="arena-surface arena-grid-glow rounded-[1.6rem] p-5">
+          <div className="arena-surface arena-phase-scene arena-grid-glow rounded-[1.6rem] p-5" data-phase={phase.phase}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="arena-chip" data-tone="signal">
                 <Radar className="size-3.5" />
-                Live room telemetry
+                Phase theatre
               </span>
               <span className="arena-chip" data-tone="flare">
                 <Wallet className="size-3.5" />
@@ -388,36 +434,59 @@ export function RoomPage({ roomAddress, initialRoom, initialCurrentSlot = 0, ini
             </div>
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Pressure window</p>
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">{phase.countdownLabel}</p>
                 <p className={cn("mt-2 font-display text-3xl text-white sm:text-4xl", phase.urgent && "arena-urgent-text")}>{phase.countdown}</p>
               </div>
               <div className="max-w-xs text-sm leading-7 text-white/68">
                 This board stays synced from confirmed Solana state, so joins, reveals, refunds, and claims surface without manual refresh.
               </div>
             </div>
-          </div>
-
-          <div className="arena-surface rounded-[1.6rem] p-5">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Your seat</p>
-            {viewerState ? (
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <span className="arena-chip" data-tone="signal">
-                  <BadgeCheck className="size-3.5" />
-                  {viewerState.label}
-                </span>
-                <span className="arena-chip">{viewerState.zone}</span>
+            <div className="mt-5 space-y-2">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
+                <span>Phase burn</span>
+                <span>{Math.round(phaseProgress)}%</span>
               </div>
-            ) : (
-              <p className="mt-4 text-sm leading-7 text-white/68">
-                You are currently spectating. Join the arena to store a local commit payload and unlock reveal and claim flows for your wallet.
-              </p>
-            )}
+              <div className="arena-meter h-2">
+                <span style={{ width: `${phaseProgress}%` }} />
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Live share ceiling</p>
+                <p className="mt-2 text-white">{formatLamports(liveShare)}</p>
+              </div>
+              <div className="arena-proof-card rounded-2xl p-4 text-sm text-white/74">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Seat pressure</p>
+                <p className="mt-2 text-white">{room.playerCount}/{room.maxPlayers} seated, {seatsLeft} left</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/45">{occupancyRatio}% of the lane occupied</p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4 rounded-[1.6rem] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/68">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Current tension</p>
-          <p className="mt-3">{phase.description}</p>
+          <div className="space-y-4">
+            <div className="arena-surface rounded-[1.6rem] p-5">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Current tension</p>
+              <h2 className="mt-3 font-display text-2xl text-white">{phase.label}</h2>
+              <p className="mt-3 text-sm leading-7 text-white/68">{phase.cue}</p>
+            </div>
+
+            <div className="arena-surface rounded-[1.6rem] p-5">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Your seat</p>
+              {viewerState ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <span className="arena-chip" data-tone="signal">
+                    <BadgeCheck className="size-3.5" />
+                    {viewerState.label}
+                  </span>
+                  <span className="arena-chip">{viewerState.zone}</span>
+                </div>
+              ) : (
+                <p className="mt-4 text-sm leading-7 text-white/68">
+                  You are currently spectating. Join the arena to store a local commit payload and unlock reveal and claim flows for your wallet.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 

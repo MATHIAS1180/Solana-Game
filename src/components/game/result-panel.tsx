@@ -45,15 +45,36 @@ export function ResultPanel({
   const winner = scoredPlayers[0];
   const payoutCutoff = room.winnerCount > 0 ? scoredPlayers[Math.min(room.winnerCount, scoredPlayers.length) - 1] ?? null : null;
   const replayHref = `/replay/${buildRoundReplaySlug({ room: room.publicKey.toBase58(), createdSlot: room.createdSlot.toString() })}`;
+  const playerPayout = player ? room.playerRewardsLamports[player.index] : 0n;
+  const didWin = !!player && rank === 0;
+  const didCash = !!player && playerPayout > 0n;
+  const scoreGapToWinner = player && winner ? Math.max(winner.scoreBps - player.scoreBps, 0) : null;
+  const errorGapToWinner = player && winner ? Math.max(player.error - winner.error, 0) : null;
+  const scoreGapToCash = player && payoutCutoff ? Math.max(payoutCutoff.scoreBps - player.scoreBps, 0) : null;
+  const outcomeTone = didWin ? "win" : didCash ? "cash" : player ? "loss" : "neutral";
+  const outcomeTitle = didWin
+    ? "You closed the room."
+    : didCash
+      ? "You cleared the payout line."
+      : player
+        ? "You missed the cash line."
+        : "Spectator readout.";
+  const outcomeBody = didWin
+    ? `Your read was the cleanest priced outcome in the room: zone ${ZONE_LABELS[player!.zone]}, ${RISK_LABELS[player!.riskBand]}, error ${player!.error}, score ${player!.scoreBps}.`
+    : didCash
+      ? `You did not top the room, but your read stayed above the paying cutoff and converted into ${formatLamports(playerPayout)}.`
+      : player
+        ? `${describeNearMiss(player.riskBand, player.zone, histogram)}${scoreGapToCash !== null ? ` You finished ${scoreGapToCash} score points below the cash line.` : ""}`
+        : "You are viewing the room from outside the payout table. The board below shows who actually priced the crowd correctly.";
 
   async function copyRoomLink() {
     try {
-      const shareUrl = new URL(roomHref, window.location.origin).toString();
+      const shareUrl = new URL(replayHref, window.location.origin).toString();
       await navigator.clipboard.writeText(shareUrl);
       toast({
         tone: "success",
-        title: "Room link copied",
-        description: "Send the lane to someone else and let them judge the read.",
+        title: "Replay link copied",
+        description: "Send the post-mortem, not just the room shell.",
         durationMs: 5200
       });
     } catch {
@@ -66,7 +87,7 @@ export function ResultPanel({
   }
 
   async function shareRound() {
-    const shareUrl = new URL(roomHref, window.location.origin).toString();
+    const shareUrl = new URL(replayHref, window.location.origin).toString();
     const shareText = player
       ? `I finished #${rank + 1} in Faultline Arena on ${formatLamports(room.stakeLamports)} with ${RISK_LABELS[player.riskBand]}.`
       : "Watch how this Faultline Arena room resolved and where the crowd actually landed.";
@@ -102,6 +123,12 @@ export function ResultPanel({
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
         <div className="space-y-4">
+          <div className="arena-outcome-card rounded-3xl p-5" data-tone={outcomeTone}>
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Outcome pulse</p>
+            <h3 className="mt-3 font-display text-3xl text-white">{outcomeTitle}</h3>
+            <p className="mt-3 text-sm leading-7 text-white/76">{outcomeBody}</p>
+          </div>
+
           <div className="arena-surface rounded-3xl p-5">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Final histogram</p>
             <div className="mt-4 space-y-3">
@@ -127,16 +154,35 @@ export function ResultPanel({
 
           {player ? (
             <div className="arena-surface rounded-3xl p-5 text-sm leading-7 text-white/72">
-              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Your finish</p>
-              <p className="mt-3 text-white">Rank #{rank + 1}</p>
-              <p>Read: zone {ZONE_LABELS[player.zone]} / {RISK_LABELS[player.riskBand]}</p>
-              <p>Forecast miss: {player.error}</p>
-              <p>Score: {player.scoreBps}</p>
-              <p>Payout: {formatLamports(room.playerRewardsLamports[player.index])}</p>
-              <p className="mt-3 text-fault-flare">{describeNearMiss(player.riskBand, player.zone, histogram)}</p>
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Why this result landed here</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="arena-proof-card rounded-2xl p-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Your line</p>
+                  <p className="mt-2 text-white">Rank #{rank + 1}</p>
+                  <p className="mt-1 text-white/72">Zone {ZONE_LABELS[player.zone]} / {RISK_LABELS[player.riskBand]}</p>
+                  <p className="mt-1 text-white/72">Error {player.error} / Score {player.scoreBps}</p>
+                </div>
+                <div className="arena-proof-card rounded-2xl p-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Winner line</p>
+                  <p className="mt-2 text-white">#{winner ? 1 : "-"}</p>
+                  {winner ? <p className="mt-1 text-white/72">Zone {ZONE_LABELS[winner.zone]} / {RISK_LABELS[winner.riskBand]}</p> : null}
+                  {winner ? <p className="mt-1 text-white/72">Error {winner.error} / Score {winner.scoreBps}</p> : null}
+                </div>
+                <div className="arena-proof-card rounded-2xl p-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Score gap</p>
+                  <p className="mt-2 text-white">{scoreGapToWinner ?? 0} points to #1</p>
+                  {scoreGapToCash !== null ? <p className="mt-1 text-white/72">{scoreGapToCash} points to the cash line</p> : null}
+                </div>
+                <div className="arena-proof-card rounded-2xl p-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Error gap</p>
+                  <p className="mt-2 text-white">{errorGapToWinner ?? 0} miss units behind #1</p>
+                  <p className="mt-1 text-white/72">Payout {formatLamports(playerPayout)}</p>
+                </div>
+              </div>
+              <p className="mt-4 text-fault-flare">{describeNearMiss(player.riskBand, player.zone, histogram)}</p>
               {payoutCutoff && rank >= room.winnerCount ? (
                 <p className="mt-3 text-white/78">
-                  Cash line this round: rank #{room.winnerCount} at score {payoutCutoff.scoreBps}. You were {payoutCutoff.scoreBps - player.scoreBps} points short of the paying band.
+                  Cash line this round: rank #{room.winnerCount} at score {payoutCutoff.scoreBps}. You were {scoreGapToCash} points short of the paying band.
                 </p>
               ) : null}
             </div>
@@ -149,7 +195,7 @@ export function ResultPanel({
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <a href={`${roomHref}#room-actions`} className="arena-primary px-5 py-3 text-center text-xs uppercase tracking-[0.2em]">
-                Queue next read
+                Play same lane again
               </a>
               <a href={replayHref} className="arena-secondary px-5 py-3 text-center text-xs uppercase tracking-[0.2em]">
                 Open replay
