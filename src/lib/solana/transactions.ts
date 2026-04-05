@@ -1,4 +1,4 @@
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { ComputeBudgetProgram, Connection, PublicKey, Transaction } from "@solana/web3.js";
 
 const FAULTLINE_ERROR_HELP: Record<number, { title: string; nextStep: string }> = {
   6000: { title: "Instruction invalide.", nextStep: "Rafraichis la page puis retente l'action." },
@@ -31,6 +31,31 @@ type SendTransaction = (
   connection: Connection,
   options?: { skipPreflight?: boolean }
 ) => Promise<string>;
+
+export type TransactionSpeed = "none" | "balanced" | "aggressive";
+
+export const TRANSACTION_SPEED_LABELS: Record<TransactionSpeed, string> = {
+  none: "Standard",
+  balanced: "Balanced",
+  aggressive: "Priority"
+};
+
+type SendAndConfirmOptions = {
+  speed?: TransactionSpeed;
+  maxAttempts?: number;
+  computeUnitLimit?: number;
+};
+
+const TRANSACTION_SPEED_CONFIG: Record<Exclude<TransactionSpeed, "none">, { computeUnitLimit: number; microLamports: number }> = {
+  balanced: {
+    computeUnitLimit: 300_000,
+    microLamports: 5_000
+  },
+  aggressive: {
+    computeUnitLimit: 450_000,
+    microLamports: 15_000
+  }
+};
 
 function delay(milliseconds: number) {
   return new Promise((resolve) => {
@@ -115,28 +140,65 @@ export async function sendAndConfirm(
   connection: Connection,
   sendTransaction: SendTransaction,
   payer: PublicKey,
-  transaction: Transaction
+  transaction: Transaction,
+  options: SendAndConfirmOptions = {}
 ) {
-  const latestBlockhash = await connection.getLatestBlockhash();
-  transaction.feePayer = payer;
-  transaction.recentBlockhash = latestBlockhash.blockhash;
+  const speed = options.speed ?? "none";
+  const maxAttempts = options.maxAttempts ?? (speed === "none" ? 1 : 2);
+  applyPriorityInstructions(transaction, speed, options.computeUnitLimit);
 
-  const signature = await sendTransaction(transaction, connection, {
-    skipPreflight: false
-  });
+  let lastError: unknown = null;
 
-  const confirmation = await pollForSignatureConfirmation({
-    connection,
-    signature,
-    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-    commitment: "confirmed"
-  });
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const latestBlockhash = await connection.getLatestBlockhash();
+    transaction.feePayer = payer;
+    transaction.recentBlockhash = latestBlockhash.blockhash;
 
-  if (confirmation.err) {
-    throw new Error(await buildTransactionErrorMessage(connection, signature, confirmation.err));
+    try {
+      const signature = await sendTransaction(transaction, connection, {
+        skipPreflight: false
+      });
+
+      const confirmation = await pollForSignatureConfirmation({
+        connection,
+        signature,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+        commitment: "confirmed"
+      });
+
+      if (confirmation.err) {
+        throw new Error(await buildTransactionErrorMessage(connection, signature, confirmation.err));
+      }
+
+      return signature;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableTransactionError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+    }
   }
 
-  return signature;
+  throw lastError instanceof Error ? lastError : new Error("Transaction failed.");
+}
+
+export function applyPriorityInstructions(transaction: Transaction, speed: TransactionSpeed, computeUnitLimit?: number) {
+  if (speed === "none") {
+    return transaction;
+  }
+
+  const hasComputeBudgetInstruction = transaction.instructions.some((instruction) => instruction.programId.equals(ComputeBudgetProgram.programId));
+  if (hasComputeBudgetInstruction) {
+    return transaction;
+  }
+
+  const config = TRANSACTION_SPEED_CONFIG[speed];
+  transaction.instructions.unshift(
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: config.microLamports }),
+    ComputeBudgetProgram.setComputeUnitLimit({ units: computeUnitLimit ?? config.computeUnitLimit })
+  );
+
+  return transaction;
 }
 
 function extractFaultlineErrorCode(err: unknown, logs: string[]) {
@@ -175,4 +237,9 @@ function extractGenericWalletError(err: unknown) {
   }
 
   return null;
+}
+
+function isRetryableTransactionError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return message.includes("expired before confirmation") || message.includes("block height exceeded") || message.includes("429") || message.includes("node is behind");
 }

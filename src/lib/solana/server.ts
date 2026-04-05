@@ -4,7 +4,7 @@ import bs58 from "bs58";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 
 import { getFaultlineProgramId, getServerRpcEndpoint } from "@/lib/solana/cluster";
-import { buildTransactionErrorMessage, pollForSignatureConfirmation } from "@/lib/solana/transactions";
+import { applyPriorityInstructions, buildTransactionErrorMessage, pollForSignatureConfirmation } from "@/lib/solana/transactions";
 
 let sharedConnection: Connection | null = null;
 let sharedRelayer: Keypair | null = null;
@@ -65,6 +65,7 @@ export async function sendRelayerTransaction(transaction: Transaction) {
   const relayer = getRelayerKeypair();
   const latestBlockhash = await connection.getLatestBlockhash("confirmed");
 
+  applyPriorityInstructions(transaction, "aggressive", 450_000);
   transaction.feePayer = relayer.publicKey;
   transaction.recentBlockhash = latestBlockhash.blockhash;
   transaction.sign(relayer);

@@ -1,8 +1,8 @@
-import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { ComputeBudgetProgram, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { createResolveGameIx } from "@/lib/faultline/instructions";
-import { buildTransactionErrorMessage, pollForSignatureConfirmation, sendAndConfirm } from "@/lib/solana/transactions";
+import { applyPriorityInstructions, buildTransactionErrorMessage, pollForSignatureConfirmation, sendAndConfirm } from "@/lib/solana/transactions";
 
 describe("solana transactions", () => {
   it("returns the signature when the transaction is confirmed without error", async () => {
@@ -23,6 +23,21 @@ describe("solana transactions", () => {
 
     expect(signature).toBe("signature-ok");
     expect(sendTransaction).toHaveBeenCalledOnce();
+  });
+
+  it("prepends compute budget instructions when a priority speed is requested", async () => {
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: new PublicKey(new Uint8Array(32).fill(9)),
+        toPubkey: new PublicKey(new Uint8Array(32).fill(8)),
+        lamports: 1
+      })
+    );
+
+    applyPriorityInstructions(transaction, "balanced");
+
+    expect(transaction.instructions[0]?.programId.equals(ComputeBudgetProgram.programId)).toBe(true);
+    expect(transaction.instructions[1]?.programId.equals(ComputeBudgetProgram.programId)).toBe(true);
   });
 
   it("surfaces on-chain errors with logs when the transaction fails after confirmation", async () => {
@@ -65,6 +80,30 @@ describe("solana transactions", () => {
 
     expect(result).toEqual({ err: null });
     expect(connection.getSignatureStatuses).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries once when the transaction expires before confirmation", async () => {
+    const connection = {
+      getLatestBlockhash: vi
+        .fn()
+        .mockResolvedValueOnce({ blockhash: "old-blockhash", lastValidBlockHeight: 42 })
+        .mockResolvedValueOnce({ blockhash: "new-blockhash", lastValidBlockHeight: 84 }),
+      getSignatureStatuses: vi
+        .fn()
+        .mockResolvedValueOnce({ value: [null] })
+        .mockResolvedValueOnce({ value: [{ confirmationStatus: "confirmed", err: null }] }),
+      getBlockHeight: vi.fn().mockResolvedValueOnce(43),
+      getTransaction: vi.fn()
+    } as never;
+    const sendTransaction = vi.fn().mockResolvedValueOnce("signature-old").mockResolvedValueOnce("signature-new");
+
+    const signature = await sendAndConfirm(connection, sendTransaction, new PublicKey(new Uint8Array(32).fill(1)), new Transaction(), {
+      speed: "balanced",
+      maxAttempts: 2
+    });
+
+    expect(signature).toBe("signature-new");
+    expect(sendTransaction).toHaveBeenCalledTimes(2);
   });
 
   it("builds resolve instructions without passing a treasury account", async () => {

@@ -6,6 +6,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction } from "@solana/web3.js";
 import { Eye, LoaderCircle, TriangleAlert, Upload } from "lucide-react";
 
+import { TransactionSpeedControl } from "@/components/game/transaction-speed-control";
 import { useToast } from "@/components/ui/toast-provider";
 import { buildCommitHash, parseStoredCommitPayload, toHex } from "@/lib/faultline/commit";
 import { RISK_LABELS, ZONE_LABELS } from "@/lib/faultline/constants";
@@ -13,7 +14,7 @@ import { createRevealDecisionIx } from "@/lib/faultline/instructions";
 import { deleteStoredCommitPayload, getStoredCommitPayload, persistCommitPayload } from "@/lib/faultline/storage";
 import type { FaultlineRoomAccount, StoredCommitPayload } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
-import { sendAndConfirm } from "@/lib/solana/transactions";
+import { sendAndConfirm, type TransactionSpeed } from "@/lib/solana/transactions";
 import { cn } from "@/lib/utils";
 
 async function clearRelayBackup(room: string, player: string) {
@@ -40,6 +41,7 @@ export function RevealPanel({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [record, setRecord] = useState<StoredCommitPayload | null>(null);
   const [pending, setPending] = useState(false);
+  const [transactionSpeed, setTransactionSpeed] = useState<TransactionSpeed>("balanced");
 
   const integrity = useMemo(() => {
     if (!record) {
@@ -156,7 +158,10 @@ export function RevealPanel({
         nonce: Uint8Array.from(record.nonce)
       });
 
-      await sendAndConfirm(connection, sendTransaction, publicKey, new Transaction().add(instruction));
+      await sendAndConfirm(connection, sendTransaction, publicKey, new Transaction().add(instruction), {
+        speed: transactionSpeed,
+        maxAttempts: transactionSpeed === "none" ? 1 : 2
+      });
       await deleteStoredCommitPayload(room.publicKey.toBase58(), publicKey.toBase58());
       void clearRelayBackup(room.publicKey.toBase58(), publicKey.toBase58());
       toast({
@@ -256,6 +261,10 @@ export function RevealPanel({
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Forecast</p>
           <p className="mt-2 font-mono text-xl text-white">[{record.forecast.join(", ")}]</p>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <TransactionSpeedControl value={transactionSpeed} onChange={setTransactionSpeed} compact />
       </div>
 
       <button

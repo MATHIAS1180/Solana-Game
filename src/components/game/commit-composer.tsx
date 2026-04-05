@@ -4,18 +4,20 @@ import { useMemo, useState } from "react";
 
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
-import { LoaderCircle, Lock, ShieldAlert } from "lucide-react";
+import { Flame, LoaderCircle, Lock, ShieldAlert, Target } from "lucide-react";
 
+import { TransactionSpeedControl } from "@/components/game/transaction-speed-control";
 import { useToast } from "@/components/ui/toast-provider";
 import { FAULTLINE_COMMIT_VERSION, PLAYER_STATUS, RISK_LABELS, ROOM_STATUS, ZONE_LABELS } from "@/lib/faultline/constants";
 import { buildCommitHash, generateNonce, validateForecast } from "@/lib/faultline/commit";
 import { createCancelExpiredRoomIx, createInitRoomIx, createJoinAndCommitIx, createSubmitCommitIx } from "@/lib/faultline/instructions";
+import { assignPayouts, computeBaseScore, computeDistributablePot, getRiskMultiplier } from "@/lib/faultline/logic";
 import { fetchRoom, findPlayerIndex } from "@/lib/faultline/rooms";
 import { persistCommitPayload } from "@/lib/faultline/storage";
 import type { FaultlineRoomAccount, Forecast, RiskBand, StoredCommitPayload, Zone } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
-import { sendAndConfirm } from "@/lib/solana/transactions";
-import { shortKey } from "@/lib/utils";
+import { sendAndConfirm, type TransactionSpeed } from "@/lib/solana/transactions";
+import { cn, formatLamports, shortKey } from "@/lib/utils";
 
 function getDefaultForecast(room: FaultlineRoomAccount): Forecast {
   const base = Math.floor(room.minPlayers / 5);
@@ -24,6 +26,32 @@ function getDefaultForecast(room: FaultlineRoomAccount): Forecast {
     histogram[index] += 1;
   }
   return histogram;
+}
+
+function getForecastPresets(room: FaultlineRoomAccount, zone: Zone) {
+  const total = Math.max(room.minPlayers + 1, room.playerCount + 1);
+  const balanced = getDefaultForecast({ ...room, minPlayers: total });
+  const center = [0, 0, 0, 0, 0] as Forecast;
+  center[2] = total;
+  const edges = [Math.ceil(total / 3), Math.floor(total / 6), Math.floor(total / 6), Math.floor(total / 6), 0] as Forecast;
+  edges[4] = total - edges[0] - edges[1] - edges[2] - edges[3];
+  const conviction = [0, 0, 0, 0, 0] as Forecast;
+  conviction[zone] = Math.max(1, Math.ceil(total / 2));
+  const spill = total - conviction[zone];
+  for (let index = 0; index < conviction.length; index += 1) {
+    if (index === zone) {
+      continue;
+    }
+    conviction[index] = Math.floor(spill / 4);
+  }
+  conviction[(zone + 1) % 5] += spill - conviction.reduce((sum, value) => sum + value, 0);
+
+  return [
+    { label: "Balanced", detail: "Neutral room map", forecast: balanced },
+    { label: "Center crush", detail: "Crowd collapses inward", forecast: center },
+    { label: "Edge drift", detail: "Pressure splits outward", forecast: edges },
+    { label: "Conviction", detail: `Lean into zone ${ZONE_LABELS[zone]}`, forecast: conviction }
+  ] as const;
 }
 
 function downloadCommitBackup(record: StoredCommitPayload) {
@@ -74,9 +102,33 @@ export function CommitComposer({
   const [pending, setPending] = useState(false);
   const [downloadBackup, setDownloadBackup] = useState(true);
   const [storeRelayRecovery, setStoreRelayRecovery] = useState(false);
+  const [transactionSpeed, setTransactionSpeed] = useState<TransactionSpeed>("balanced");
   const isJoined = playerIndex >= 0;
 
   const validation = useMemo(() => validateForecast(forecast, room.minPlayers, room.maxPlayers), [forecast, room.maxPlayers, room.minPlayers]);
+  const forecastPresets = useMemo(() => getForecastPresets(room, zone), [room, zone]);
+  const projectedOutcome = useMemo(() => {
+    if (!validation.valid) {
+      return null;
+    }
+
+    const projectedPlayers = Math.max(room.minPlayers, validation.total);
+    const projectedPot = BigInt(projectedPlayers) * room.stakeLamports;
+    const distributable = computeDistributablePot(projectedPot, 0n);
+    const { rewards } = assignPayouts(distributable, projectedPlayers);
+    const multiplier = getRiskMultiplier(riskBand, zone, forecast);
+    const baseScore = computeBaseScore(projectedPlayers, 0);
+
+    return {
+      projectedPlayers,
+      topPayout: rewards[0] ?? 0n,
+      cashLine: rewards[Math.min(room.winnerCount, rewards.length) - 1] ?? 0n,
+      multiplier,
+      baseScore,
+      zoneLoad: forecast[zone],
+      cleanestLoad: Math.min(...forecast)
+    };
+  }, [forecast, riskBand, room.minPlayers, room.stakeLamports, room.winnerCount, validation.total, validation.valid, zone]);
 
   function isExpiredUnderMinPlayers(candidate: FaultlineRoomAccount, currentSlot: number) {
     return (
@@ -209,7 +261,10 @@ export function CommitComposer({
         );
       }
 
-      await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
+      await sendAndConfirm(connection, sendTransaction, publicKey, transaction, {
+        speed: transactionSpeed,
+        maxAttempts: transactionSpeed === "none" ? 1 : 2
+      });
 
       let relayBackupStored = false;
       if (storeRelayRecovery) {
@@ -317,6 +372,20 @@ export function CommitComposer({
             <p className={validation.valid ? "text-emerald-200" : "text-fault-flare"}>Total {validation.total}</p>
           </div>
           <p className="mt-2 text-sm leading-6 text-white/52">Model how many total players you expect in each zone at resolution. Your error is measured against this final histogram.</p>
+          <div className="mt-4 grid gap-2 md:grid-cols-4">
+            {forecastPresets.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => setForecast([...preset.forecast] as Forecast)}
+                className="rounded-2xl border border-white/10 bg-black/20 p-3 text-left text-white/74 transition hover:border-white/25 hover:text-white"
+              >
+                <p className="font-display text-base text-white">{preset.label}</p>
+                <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-white/45">{preset.detail}</p>
+                <p className="mt-2 font-mono text-xs text-white/62">[{preset.forecast.join(", ")}]</p>
+              </button>
+            ))}
+          </div>
           <div className="mt-3 grid grid-cols-5 gap-2">
             {forecast.map((value, index) => (
               <label key={index} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center text-white/75">
@@ -336,7 +405,69 @@ export function CommitComposer({
               </label>
             ))}
           </div>
+          <div className="mt-4 grid gap-2 md:grid-cols-5">
+            {forecast.map((value, index) => {
+              const share = validation.total > 0 ? (value / validation.total) * 100 : 0;
+              return (
+                <div key={`${ZONE_LABELS[index]}-pressure`} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                  <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
+                    <span>{ZONE_LABELS[index]}</span>
+                    <span>{share.toFixed(0)}%</span>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-white/10">
+                    <div className={cn("h-2 rounded-full bg-gradient-to-r", index === zone ? "from-fault-flare to-fault-ember" : "from-fault-signal/70 to-white/40")} style={{ width: `${share}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+
+        <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/70">
+            <p className="inline-flex items-center gap-2 text-fault-flare">
+              <Target className="size-4" />
+              Projection if your room read lands exactly.
+            </p>
+            {projectedOutcome ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Projected field</p>
+                  <p className="mt-2 text-xl text-white">{projectedOutcome.projectedPlayers} players</p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Top payout</p>
+                  <p className="mt-2 text-xl text-white">{formatLamports(projectedOutcome.topPayout)}</p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Cash line</p>
+                  <p className="mt-2 text-xl text-white">{formatLamports(projectedOutcome.cashLine)}</p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/45">Risk multiplier</p>
+                  <p className="mt-2 text-xl text-white">x{(projectedOutcome.multiplier / 10000).toFixed(2)}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-white/62">Fix the forecast total first to unlock the payout projection.</p>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/70">
+            <p className="inline-flex items-center gap-2 text-fault-signal">
+              <Flame className="size-4" />
+              Read recap before signature.
+            </p>
+            <p className="mt-3 text-white/82">Zone {ZONE_LABELS[zone]} with {RISK_LABELS[riskBand]} on forecast [{forecast.join(", ")}]</p>
+            {projectedOutcome ? (
+              <p className="mt-3 text-white/68">
+                Your chosen lane carries {projectedOutcome.zoneLoad} predicted players while the cleanest lane in this forecast sits at {projectedOutcome.cleanestLoad}. This is a conviction bet, not a random entry.
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <TransactionSpeedControl value={transactionSpeed} onChange={setTransactionSpeed} />
 
         <div className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-7 text-white/70">
           <p className="inline-flex items-center gap-2 text-fault-flare">

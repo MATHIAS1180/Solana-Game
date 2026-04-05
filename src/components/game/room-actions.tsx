@@ -6,6 +6,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { Ban, Coins, Gavel, LoaderCircle, LockKeyhole, Sparkle, TimerReset } from "lucide-react";
 
+import { TransactionSpeedControl } from "@/components/game/transaction-speed-control";
 import { useToast } from "@/components/ui/toast-provider";
 import { PLAYER_STATUS, ROOM_STATUS } from "@/lib/faultline/constants";
 import {
@@ -16,7 +17,7 @@ import {
 } from "@/lib/faultline/instructions";
 import type { FaultlineRoomAccount } from "@/lib/faultline/types";
 import { getFaultlineProgramId } from "@/lib/solana/cluster";
-import { sendAndConfirm } from "@/lib/solana/transactions";
+import { sendAndConfirm, type TransactionSpeed } from "@/lib/solana/transactions";
 import { cn, formatCountdown, formatLamports } from "@/lib/utils";
 
 function getDeadlineUrgency(remaining: number | null) {
@@ -85,6 +86,7 @@ export function RoomActions({
   const programId = getFaultlineProgramId();
   const toast = useToast();
   const [pending, setPending] = useState<string | null>(null);
+  const [transactionSpeed, setTransactionSpeed] = useState<TransactionSpeed>("balanced");
 
   const isJoined = playerIndex >= 0;
   const playerStatus = isJoined ? room.playerStatuses[playerIndex] : PLAYER_STATUS.Empty;
@@ -130,7 +132,10 @@ export function RoomActions({
     try {
       setPending(label);
       const transaction = await builder();
-      await sendAndConfirm(connection, sendTransaction, publicKey, transaction);
+      await sendAndConfirm(connection, sendTransaction, publicKey, transaction, {
+        speed: transactionSpeed,
+        maxAttempts: transactionSpeed === "aggressive" ? 3 : transactionSpeed === "balanced" ? 2 : 1
+      });
       await onRefresh();
       toast({
         tone: "success",
@@ -266,6 +271,10 @@ export function RoomActions({
             />
           ) : null}
 
+        </div>
+
+        <div className="mt-6">
+          <TransactionSpeedControl value={transactionSpeed} onChange={setTransactionSpeed} compact />
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-3">
